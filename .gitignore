@@ -1,0 +1,9 @@
+# Credentials (never commit)
+config.json
+tokens.json
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
