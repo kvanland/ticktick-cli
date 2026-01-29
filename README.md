@@ -205,8 +205,6 @@ const result = await tasks.create('inbox', 'New task', {
 | `~/.config/ticktick/config.json` | Client credentials |
 | `~/.config/ticktick/tokens.json` | OAuth tokens (auto-managed) |
 
-Legacy path `~/.clawdbot/ticktick/` is also supported for backwards compatibility.
-
 ## Reference
 
 **Priority values:** none, low, medium, high
