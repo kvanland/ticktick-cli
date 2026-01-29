@@ -2,15 +2,37 @@
 
 CLI and MCP server for TickTick task management.
 
+## Quickstart
+
+```bash
+# Install globally
+npm install -g ticktick-cli
+
+# Run interactive setup (creates API credentials and authenticates)
+ticktick setup
+
+# Create your first task
+ticktick tasks create "Hello TickTick!" --priority high
+
+# See what's due soon
+ticktick tasks due
+```
+
+The setup wizard will guide you through:
+1. Creating an app at https://developer.ticktick.com/
+2. Entering your Client ID and Secret
+3. Authenticating via OAuth
+
 ## Features
 
+- **Easy setup** - Interactive wizard handles configuration
 - **Short IDs** - Use abbreviated 8-character IDs for convenience
 - **Tags support** - Organize tasks with tags
 - **Interactive mode** - Create tasks with guided prompts
 - **Human-readable output** - Table format by default, JSON optional
 - OAuth 2.0 with automatic token refresh
 - Supports global and China regions
-- MCP server for Claude Desktop integration
+- MCP server for Claude Desktop and Claude Code integration
 
 ## Installation
 
@@ -21,19 +43,30 @@ npm install -g ticktick-cli
 Or use directly with npx:
 
 ```bash
-npx ticktick-cli auth status
+npx ticktick-cli setup
 ```
 
 ## Setup
 
-### 1. Get API Credentials
+### Option 1: Interactive Setup (Recommended)
+
+```bash
+ticktick setup
+```
+
+This walks you through the entire setup process interactively.
+
+### Option 2: Manual Setup
+
+#### 1. Get API Credentials
 
 1. Go to https://developer.ticktick.com/
-2. Create a new application
-3. Note your **Client ID** and **Client Secret**
+2. Sign in and click "Manage Apps"
+3. Click "+App Name" to create a new application
 4. Set redirect URI to `http://localhost:18888/callback`
+5. Note your **Client ID** and **Client Secret**
 
-### 2. Configure Credentials
+#### 2. Configure Credentials
 
 Create `~/.config/ticktick/config.json`:
 
@@ -51,11 +84,9 @@ Or set environment variables:
 ```bash
 export TICKTICK_CLIENT_ID="your_client_id"
 export TICKTICK_CLIENT_SECRET="your_client_secret"
-export TICKTICK_REDIRECT_URI="http://localhost:18888/callback"  # optional
-export TICKTICK_REGION="global"  # or "china"
 ```
 
-### 3. Authenticate
+#### 3. Authenticate
 
 ```bash
 ticktick auth login
@@ -70,9 +101,10 @@ Tokens are stored in `~/.config/ticktick/tokens.json` and auto-refresh.
 ## CLI Usage
 
 ```
-ticktick <command> <subcommand> [options]
+ticktick <command> [options]
 
 Commands:
+  setup      Interactive setup wizard
   auth       Authentication management
   projects   Project operations
   tasks      Task operations
@@ -81,25 +113,6 @@ Global options:
   --help, -h        Show help
   --version, -v     Show version
   --format <type>   Output format: text (default) or json
-```
-
-### Authentication
-
-```bash
-ticktick auth status           # Check auth status
-ticktick auth login            # Get authorization URL
-ticktick auth exchange CODE    # Exchange code for tokens
-ticktick auth refresh          # Manually refresh token
-ticktick auth logout           # Clear tokens
-```
-
-### Projects
-
-```bash
-ticktick projects list                              # List all projects
-ticktick projects get PROJECT_ID                    # Get project with tasks
-ticktick projects create "Name" --color "#ff6b6b"   # Create project
-ticktick projects delete PROJECT_ID                 # Delete project
 ```
 
 ### Tasks
@@ -139,6 +152,25 @@ ticktick tasks due 3           # Tasks due in 3 days
 ticktick tasks priority        # High priority tasks
 ```
 
+### Projects
+
+```bash
+ticktick projects list                              # List all projects
+ticktick projects get PROJECT_ID                    # Get project with tasks
+ticktick projects create "Name" --color "#ff6b6b"   # Create project
+ticktick projects delete PROJECT_ID                 # Delete project
+```
+
+### Authentication
+
+```bash
+ticktick auth status           # Check auth status
+ticktick auth login            # Get authorization URL
+ticktick auth exchange CODE    # Exchange code for tokens
+ticktick auth refresh          # Manually refresh token
+ticktick auth logout           # Clear tokens
+```
+
 ### Short IDs
 
 All IDs are displayed as 8-character short IDs for convenience:
@@ -164,11 +196,15 @@ ticktick projects list --format json
 
 ## MCP Server
 
-The package includes an MCP server for integration with Claude Desktop and other MCP clients.
+The package includes an MCP (Model Context Protocol) server for AI assistant integration.
 
-### Claude Desktop Configuration
+### Claude Desktop
 
-Add to `~/.config/claude/claude_desktop_config.json`:
+Add to your Claude Desktop config file:
+
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+**Linux:** `~/.config/claude/claude_desktop_config.json`
 
 ```json
 {
@@ -180,20 +216,31 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 }
 ```
 
-Or for development:
+Restart Claude Desktop after adding the configuration.
+
+### Claude Code
+
+Add to your Claude Code MCP settings (`~/.claude/settings.json`):
 
 ```json
 {
   "mcpServers": {
     "ticktick": {
-      "command": "node",
-      "args": ["/path/to/ticktick-cli/bin/ticktick-mcp.mjs"]
+      "command": "ticktick-mcp"
     }
   }
 }
 ```
 
+Or add via the CLI:
+
+```bash
+claude mcp add ticktick ticktick-mcp
+```
+
 ### Available MCP Tools
+
+Once configured, the AI assistant can use these tools:
 
 | Tool | Description |
 |------|-------------|
@@ -202,13 +249,49 @@ Or for development:
 | `ticktick_projects_get` | Get project with tasks |
 | `ticktick_tasks_list` | List tasks in project |
 | `ticktick_tasks_get` | Get task details |
-| `ticktick_tasks_create` | Create a new task (with tags) |
+| `ticktick_tasks_create` | Create a new task |
 | `ticktick_tasks_update` | Update an existing task |
 | `ticktick_tasks_complete` | Mark task as complete |
 | `ticktick_tasks_delete` | Delete a task |
 | `ticktick_tasks_search` | Search by keyword, tags, or priority |
 | `ticktick_tasks_due` | Get tasks due within N days |
 | `ticktick_tasks_priority` | Get high priority tasks |
+
+**Example prompts for Claude:**
+- "What tasks do I have due this week?"
+- "Create a task to buy groceries tomorrow with high priority"
+- "Mark my grocery task as complete"
+- "Search for all tasks tagged 'work'"
+
+## Using as a Claude Code Skill
+
+This package can be used as a Claude Code skill for natural language task management.
+
+### Installation
+
+1. Clone or download this repository
+2. Run `ticktick setup` to configure credentials
+3. Copy `SKILL.md` to your project or reference it in your Claude Code configuration
+
+### Adding to Claude Code
+
+Add to your project's `.claude/settings.json`:
+
+```json
+{
+  "skills": [
+    "/path/to/ticktick-cli/SKILL.md"
+  ]
+}
+```
+
+Or symlink SKILL.md to your project:
+
+```bash
+ln -s /path/to/ticktick-cli/SKILL.md .claude/skills/ticktick.md
+```
+
+The skill provides Claude Code with documentation on how to use the CLI commands.
 
 ## Programmatic Usage
 
@@ -248,6 +331,26 @@ const results = await tasks.search('', { tags: ['work'] });
 **Projects:** Omit project ID to use default; use `ticktick projects list` to see all projects
 
 **Short IDs:** First 8 characters of full ID, used for convenience
+
+## Troubleshooting
+
+### "No config found" error
+
+Run `ticktick setup` to configure your credentials.
+
+### "Not authenticated" error
+
+Run `ticktick auth login` and follow the OAuth flow, or run `ticktick setup` to start fresh.
+
+### Token expired
+
+Tokens auto-refresh, but if you see issues, run `ticktick auth refresh` or `ticktick auth login`.
+
+### MCP server not working
+
+1. Ensure `ticktick-mcp` is in your PATH (installed globally)
+2. Check that credentials are configured: `ticktick auth status`
+3. Restart Claude Desktop/Claude Code after config changes
 
 ## License
 

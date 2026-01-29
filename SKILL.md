@@ -2,113 +2,113 @@
 
 Manage tasks and projects in TickTick via the CLI.
 
-## Setup
+## Installation
 
-### 1. Get API Credentials
-
-1. Go to https://developer.ticktick.com/
-2. Create a new application
-3. Note your **Client ID** and **Client Secret**
-4. Set redirect URI to `http://localhost:18888/callback`
-
-### 2. Configure Credentials
-
-Create `~/.config/ticktick/config.json`:
-
-```json
-{
-  "clientId": "YOUR_CLIENT_ID",
-  "clientSecret": "YOUR_CLIENT_SECRET",
-  "redirectUri": "http://localhost:18888/callback",
-  "region": "global"
-}
-```
-
-Or set environment variables:
-- `TICKTICK_CLIENT_ID`
-- `TICKTICK_CLIENT_SECRET`
-- `TICKTICK_REDIRECT_URI` (optional)
-- `TICKTICK_REGION` (optional: "global" or "china")
-
-### 3. Authenticate
+### 1. Install the CLI
 
 ```bash
-ticktick auth login
-# Visit the URL and authorize
-# Copy the code from the redirect URL
+npm install -g ticktick-cli
+```
 
-ticktick auth exchange YOUR_CODE
+### 2. Run Setup
+
+```bash
+ticktick setup
+```
+
+This interactive wizard will:
+1. Guide you to create an app at https://developer.ticktick.com/
+2. Save your Client ID and Secret
+3. Complete the OAuth authentication
+
+### 3. Verify Installation
+
+```bash
+ticktick auth status
 ```
 
 ## Usage
 
-### Authentication
-
-```bash
-ticktick auth status           # Check auth status
-ticktick auth login            # Get authorization URL
-ticktick auth exchange CODE    # Exchange code for tokens
-ticktick auth refresh          # Refresh token manually
-ticktick auth logout           # Clear tokens
-```
-
-### Projects
-
-```bash
-ticktick projects list                                    # List all projects
-ticktick projects get PROJECT_ID                          # Get project with tasks
-ticktick projects create "Name" --color "#ff6b6b"         # Create project
-ticktick projects delete PROJECT_ID                       # Delete project
-```
-
-### Tasks
+### Creating Tasks
 
 ```bash
 # Interactive mode - prompts for all fields
 ticktick tasks create
 
-# Create task (goes to default project)
-ticktick tasks create "Title" [options]
+# Quick task (goes to default project)
+ticktick tasks create "Task title"
 
-# Create task in specific project
-ticktick tasks create PROJECT_ID "Title" [options]
+# Task with options
+ticktick tasks create "Buy groceries" --due 2026-01-30 --priority high --tags "shopping"
 
-# List and get tasks (use short 8-char IDs!)
-ticktick tasks list PROJECT_ID
-ticktick tasks get PROJECT_ID 685cfca6
-
-# Update a task
-ticktick tasks update TASK_ID [options]
-
-# Complete and delete
-ticktick tasks complete PROJECT_ID TASK_ID
-ticktick tasks delete PROJECT_ID TASK_ID
-
-# Search (by text, tags, or priority)
-ticktick tasks search "keyword"
-ticktick tasks search --tags "work,urgent"
-ticktick tasks search --priority high
-
-# Filter by due date
-ticktick tasks due [days]                                 # Default: 7 days
-ticktick tasks priority                                   # High priority tasks
+# Task in specific project
+ticktick tasks create PROJECT_ID "Task title"
 ```
 
-**Create/Update options:**
-- `--project "PROJECT_ID"` (optional, for create)
-- `--content "description"`
-- `--due "2026-01-15"` (YYYY-MM-DD or ISO 8601)
-- `--priority none|low|medium|high`
-- `--tags "tag1,tag2"` (comma-separated)
-- `--reminder 15m|1h|1d` (before due)
-- `--title "New title"` (update only)
-
-### Output Formats
+### Viewing Tasks
 
 ```bash
-ticktick projects list                  # Table format (default)
-ticktick projects list --format json    # JSON format
+# Tasks due soon (default: 7 days)
+ticktick tasks due
+ticktick tasks due 3              # Due in 3 days
+
+# High priority tasks
+ticktick tasks priority
+
+# Search tasks
+ticktick tasks search "meeting"
+ticktick tasks search --tags "work"
+ticktick tasks search --priority high
+
+# List tasks in a project
+ticktick tasks list PROJECT_ID
 ```
+
+### Managing Tasks
+
+```bash
+# Get task details
+ticktick tasks get PROJECT_ID TASK_ID
+
+# Update a task
+ticktick tasks update TASK_ID --title "New title" --priority medium
+
+# Complete a task
+ticktick tasks complete PROJECT_ID TASK_ID
+
+# Delete a task
+ticktick tasks delete PROJECT_ID TASK_ID
+```
+
+### Projects
+
+```bash
+ticktick projects list                            # List all projects
+ticktick projects get PROJECT_ID                  # Get project with tasks
+ticktick projects create "Name" --color "#ff6b6b" # Create project
+ticktick projects delete PROJECT_ID               # Delete project
+```
+
+### Authentication
+
+```bash
+ticktick auth status    # Check auth status
+ticktick auth login     # Start OAuth flow
+ticktick auth logout    # Clear tokens
+```
+
+## Options Reference
+
+**Create/Update options:**
+- `--content "description"` - Task description
+- `--due "2026-01-15"` - Due date (YYYY-MM-DD or ISO 8601)
+- `--priority none|low|medium|high` - Task priority
+- `--tags "tag1,tag2"` - Comma-separated tags
+- `--reminder 15m|1h|1d` - Reminder before due time
+- `--title "New title"` - New title (update only)
+
+**Output options:**
+- `--format json` - Output as JSON instead of table
 
 ## Short IDs
 
@@ -122,45 +122,29 @@ ID       | Title                          | Due        | Pri
 
 Use these short IDs in commands instead of full UUIDs.
 
-## Quick Reference
-
-**Priority values:** none (0), low (1), medium (3), high (5)
-
-**Date format:** `YYYY-MM-DD` or ISO 8601 with time
-
-**Reminder format:** `15m`, `30m`, `1h`, `2h`, `1d`
-
-**Projects:** Use `ticktick projects list` to see available project IDs
-
 ## Examples
 
 ```bash
-# Create a task interactively
-ticktick tasks create
-
-# Create a task with due date, priority, and tags
+# Create a task with due date and tags
 ticktick tasks create "Buy groceries" --due 2026-01-30 --priority high --tags "shopping"
 
-# Create a task with reminder
+# Create a task with reminder (1 hour before due)
 ticktick tasks create "Meeting prep" --due 2026-01-30T09:00:00 --reminder 1h
-
-# Create a task in a specific project
-ticktick tasks create PROJECT_ID "Project task" --priority medium
 
 # Get tasks due in the next 3 days
 ticktick tasks due 3
 
-# Search for tasks containing "meeting"
-ticktick tasks search "meeting"
-
-# Find all high priority tasks
-ticktick tasks search --priority high
-
-# Find tasks with specific tags
+# Search for all work-related tasks
 ticktick tasks search --tags "work"
+
+# Complete a task
+ticktick tasks complete PROJECT_ID 685cfca6
 ```
 
-## Config Files
+## Troubleshooting
 
-- `~/.config/ticktick/config.json` - Client credentials
-- `~/.config/ticktick/tokens.json` - OAuth tokens (auto-managed)
+**"No config found"** - Run `ticktick setup`
+
+**"Not authenticated"** - Run `ticktick auth login` or `ticktick setup`
+
+**Token expired** - Run `ticktick auth refresh`

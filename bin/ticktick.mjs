@@ -16,6 +16,7 @@ import * as auth from '../lib/auth.mjs';
 import * as tasks from '../lib/tasks.mjs';
 import * as projects from '../lib/projects.mjs';
 import { promptTaskCreate } from '../lib/interactive.mjs';
+import { runSetup } from '../lib/setup.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -36,6 +37,9 @@ async function main() {
     // Route to command handlers
     let result;
     switch (args.command) {
+      case 'setup':
+        result = await runSetup();
+        break;
       case 'auth':
         result = await handleAuth();
         break;
