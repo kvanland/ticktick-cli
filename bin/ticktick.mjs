@@ -153,6 +153,7 @@ async function handleTasks() {
         content: args.options.content,
         dueDate: args.options.due,
         priority: args.options.priority,
+        tags: args.options.tags,
         reminder: args.options.reminder,
       });
     case 'update':
@@ -165,6 +166,7 @@ async function handleTasks() {
         content: args.options.content,
         dueDate: args.options.due,
         priority: args.options.priority,
+        tags: args.options.tags,
         reminder: args.options.reminder,
       });
     case 'complete':
@@ -179,12 +181,18 @@ async function handleTasks() {
         process.exit(1);
       }
       return await tasks.remove(args.positional[0], args.positional[1]);
-    case 'search':
-      if (!args.positional[0]) {
-        console.error('Usage: ticktick tasks search KEYWORD');
+    case 'search': {
+      const keyword = args.positional[0] || '';
+      const searchTags = args.options.tags ? args.options.tags.split(',').map((t) => t.trim()) : null;
+      if (!keyword && !searchTags && !args.options.priority) {
+        console.error('Usage: ticktick tasks search [KEYWORD] [--tags TAGS] [--priority LEVEL]');
         process.exit(1);
       }
-      return await tasks.search(args.positional[0]);
+      return await tasks.search(keyword, {
+        tags: searchTags,
+        priority: args.options.priority,
+      });
+    }
     case 'due':
       return await tasks.due(parseInt(args.positional[0]) || 7);
     case 'priority':
