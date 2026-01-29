@@ -1,0 +1,38 @@
+{
+  "name": "ticktick-cli",
+  "version": "1.0.0",
+  "description": "CLI and MCP server for TickTick task management",
+  "type": "module",
+  "bin": {
+    "ticktick": "./bin/ticktick.mjs",
+    "ticktick-mcp": "./bin/ticktick-mcp.mjs"
+  },
+  "exports": {
+    ".": "./lib/core.mjs",
+    "./core": "./lib/core.mjs",
+    "./auth": "./lib/auth.mjs",
+    "./tasks": "./lib/tasks.mjs",
+    "./projects": "./lib/projects.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": [
+    "ticktick",
+    "todo",
+    "tasks",
+    "cli",
+    "mcp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ]
+}
