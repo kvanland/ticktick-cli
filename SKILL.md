@@ -67,12 +67,15 @@ ticktick projects delete PROJECT_ID                       # Delete project
 # Interactive mode - prompts for all fields
 ticktick tasks create
 
-# Create with command line options
+# Create task (goes to default project)
+ticktick tasks create "Title" [options]
+
+# Create task in specific project
 ticktick tasks create PROJECT_ID "Title" [options]
 
 # List and get tasks (use short 8-char IDs!)
-ticktick tasks list inbox
-ticktick tasks get inbox 685cfca6
+ticktick tasks list PROJECT_ID
+ticktick tasks get PROJECT_ID 685cfca6
 
 # Update a task
 ticktick tasks update TASK_ID [options]
@@ -92,6 +95,7 @@ ticktick tasks priority                                   # High priority tasks
 ```
 
 **Create/Update options:**
+- `--project "PROJECT_ID"` (optional, for create)
 - `--content "description"`
 - `--due "2026-01-15"` (YYYY-MM-DD or ISO 8601)
 - `--priority none|low|medium|high`
@@ -126,7 +130,7 @@ Use these short IDs in commands instead of full UUIDs.
 
 **Reminder format:** `15m`, `30m`, `1h`, `2h`, `1d`
 
-**Special project ID:** Use `inbox` for the inbox project
+**Projects:** Use `ticktick projects list` to see available project IDs
 
 ## Examples
 
@@ -134,11 +138,14 @@ Use these short IDs in commands instead of full UUIDs.
 # Create a task interactively
 ticktick tasks create
 
-# Create a task in inbox with due date, priority, and tags
-ticktick tasks create inbox "Buy groceries" --due 2026-01-30 --priority high --tags "shopping"
+# Create a task with due date, priority, and tags
+ticktick tasks create "Buy groceries" --due 2026-01-30 --priority high --tags "shopping"
 
 # Create a task with reminder
-ticktick tasks create inbox "Meeting prep" --due 2026-01-30T09:00:00 --reminder 1h
+ticktick tasks create "Meeting prep" --due 2026-01-30T09:00:00 --reminder 1h
+
+# Create a task in a specific project
+ticktick tasks create PROJECT_ID "Project task" --priority medium
 
 # Get tasks due in the next 3 days
 ticktick tasks due 3

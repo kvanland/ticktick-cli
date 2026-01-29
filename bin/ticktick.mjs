@@ -146,8 +146,16 @@ async function handleTasks() {
       }
       return await tasks.get(args.positional[0], args.positional[1]);
     case 'create': {
-      let projectId = args.positional[0];
-      let title = args.positional[1];
+      // Support both: "create TITLE" (default project) and "create PROJECT_ID TITLE"
+      let projectId = args.options.project || '';
+      let title = args.positional[0];
+
+      // If two positional args given, first is project, second is title
+      if (args.positional.length >= 2) {
+        projectId = args.positional[0];
+        title = args.positional[1];
+      }
+
       let options = {
         content: args.options.content,
         dueDate: args.options.due,
@@ -156,14 +164,14 @@ async function handleTasks() {
         reminder: args.options.reminder,
       };
 
-      // Interactive mode if project or title not provided and stdin is a TTY
-      if ((!projectId || !title) && process.stdin.isTTY) {
+      // Interactive mode if title not provided and stdin is a TTY
+      if (!title && process.stdin.isTTY) {
         const input = await promptTaskCreate({
           projectId,
           title,
           ...options,
         });
-        projectId = input.projectId;
+        projectId = input.projectId || '';
         title = input.title;
         options = {
           content: input.content,
@@ -172,8 +180,9 @@ async function handleTasks() {
           tags: input.tags,
           reminder: input.reminder,
         };
-      } else if (!projectId || !title) {
-        console.error('Usage: ticktick tasks create PROJECT_ID TITLE [options]');
+      } else if (!title) {
+        console.error('Usage: ticktick tasks create TITLE [options]');
+        console.error('       ticktick tasks create PROJECT_ID TITLE [options]');
         console.error('Run without arguments for interactive mode.');
         process.exit(1);
       }

@@ -108,23 +108,26 @@ ticktick projects delete PROJECT_ID                 # Delete project
 # Interactive mode (prompts for all fields)
 ticktick tasks create
 
-# Create with options
-ticktick tasks create inbox "Buy groceries" \
+# Create task (goes to default project)
+ticktick tasks create "Buy groceries" \
   --due 2026-01-30 \
   --priority high \
   --tags "shopping,errands" \
   --reminder 1h
 
+# Create task in specific project
+ticktick tasks create PROJECT_ID "Task title"
+
 # List and get (use short IDs!)
-ticktick tasks list inbox
-ticktick tasks get inbox 685cfca6
+ticktick tasks list PROJECT_ID
+ticktick tasks get PROJECT_ID 685cfca6
 
 # Update
 ticktick tasks update 685cfca6 --title "New title" --priority medium
 
 # Complete and delete
-ticktick tasks complete inbox 685cfca6
-ticktick tasks delete inbox 685cfca6
+ticktick tasks complete PROJECT_ID 685cfca6
+ticktick tasks delete PROJECT_ID 685cfca6
 
 # Search (by text, tags, or priority)
 ticktick tasks search "meeting"
@@ -216,8 +219,8 @@ import * as projects from 'ticktick-cli/projects';
 // List projects
 const projectList = await projects.list();
 
-// Create a task with tags
-const result = await tasks.create('inbox', 'New task', {
+// Create a task with tags (empty string for default project)
+const result = await tasks.create('', 'New task', {
   dueDate: '2026-01-30',
   priority: 'high',
   tags: ['work', 'urgent'],
@@ -242,7 +245,7 @@ const results = await tasks.search('', { tags: ['work'] });
 
 **Reminder format:** `15m`, `30m`, `1h`, `2h`, `1d` (before due time)
 
-**Special project IDs:** Use `inbox` for the inbox project
+**Projects:** Omit project ID to use default; use `ticktick projects list` to see all projects
 
 **Short IDs:** First 8 characters of full ID, used for convenience
 
