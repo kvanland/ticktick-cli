@@ -176,6 +176,7 @@ Or for development:
 | `ticktick_projects_get` | Get project with tasks |
 | `ticktick_tasks_list` | List tasks in project |
 | `ticktick_tasks_create` | Create a new task |
+| `ticktick_tasks_update` | Update an existing task |
 | `ticktick_tasks_complete` | Mark task as complete |
 | `ticktick_tasks_search` | Search tasks by keyword |
 | `ticktick_tasks_due` | Get tasks due within N days |
