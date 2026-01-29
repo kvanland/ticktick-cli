@@ -4,10 +4,12 @@ CLI and MCP server for TickTick task management.
 
 ## Features
 
-- Zero dependencies for core CLI (only MCP SDK for server mode)
+- **Short IDs** - Use abbreviated 8-character IDs for convenience
+- **Tags support** - Organize tasks with tags
+- **Interactive mode** - Create tasks with guided prompts
+- **Human-readable output** - Table format by default, JSON optional
 - OAuth 2.0 with automatic token refresh
 - Supports global and China regions
-- JSON and text output formats
 - MCP server for Claude Desktop integration
 
 ## Installation
@@ -78,7 +80,7 @@ Commands:
 Global options:
   --help, -h        Show help
   --version, -v     Show version
-  --format <type>   Output format: json (default) or text
+  --format <type>   Output format: text (default) or json
 ```
 
 ### Authentication
@@ -103,37 +105,58 @@ ticktick projects delete PROJECT_ID                 # Delete project
 ### Tasks
 
 ```bash
-# List and get
-ticktick tasks list PROJECT_ID
-ticktick tasks get PROJECT_ID TASK_ID
+# Interactive mode (prompts for all fields)
+ticktick tasks create
 
 # Create with options
 ticktick tasks create inbox "Buy groceries" \
   --due 2026-01-30 \
   --priority high \
+  --tags "shopping,errands" \
   --reminder 1h
 
+# List and get (use short IDs!)
+ticktick tasks list inbox
+ticktick tasks get inbox 685cfca6
+
 # Update
-ticktick tasks update TASK_ID --title "New title" --priority medium
+ticktick tasks update 685cfca6 --title "New title" --priority medium
 
 # Complete and delete
-ticktick tasks complete PROJECT_ID TASK_ID
-ticktick tasks delete PROJECT_ID TASK_ID
+ticktick tasks complete inbox 685cfca6
+ticktick tasks delete inbox 685cfca6
 
-# Search and filter
+# Search (by text, tags, or priority)
 ticktick tasks search "meeting"
+ticktick tasks search --tags "work"
+ticktick tasks search --priority high
+
+# Filter by due date
 ticktick tasks due 3           # Tasks due in 3 days
 ticktick tasks priority        # High priority tasks
 ```
 
+### Short IDs
+
+All IDs are displayed as 8-character short IDs for convenience:
+
+```
+ID       | Title                          | Due        | Pri
+--------------------------------------------------------------
+685cfca6 | Buy groceries                  | 2026-01-30 | high
+a1b2c3d4 | Call mom                       | 2026-01-31 | medium
+```
+
+Use these short IDs in commands instead of full UUIDs.
+
 ### Output Formats
 
 ```bash
-# JSON (default) - for scripting
+# Table format (default) - human readable
 ticktick projects list
 
-# Text - for human reading
-ticktick projects list --format text
+# JSON format - for scripting
+ticktick projects list --format json
 ```
 
 ## MCP Server
@@ -175,28 +198,33 @@ Or for development:
 | `ticktick_projects_list` | List all projects |
 | `ticktick_projects_get` | Get project with tasks |
 | `ticktick_tasks_list` | List tasks in project |
-| `ticktick_tasks_create` | Create a new task |
+| `ticktick_tasks_get` | Get task details |
+| `ticktick_tasks_create` | Create a new task (with tags) |
 | `ticktick_tasks_update` | Update an existing task |
 | `ticktick_tasks_complete` | Mark task as complete |
-| `ticktick_tasks_search` | Search tasks by keyword |
+| `ticktick_tasks_delete` | Delete a task |
+| `ticktick_tasks_search` | Search by keyword, tags, or priority |
 | `ticktick_tasks_due` | Get tasks due within N days |
 | `ticktick_tasks_priority` | Get high priority tasks |
 
 ## Programmatic Usage
 
 ```javascript
-import { apiRequest, loadTokens } from 'ticktick-cli/core';
 import * as tasks from 'ticktick-cli/tasks';
 import * as projects from 'ticktick-cli/projects';
 
 // List projects
 const projectList = await projects.list();
 
-// Create a task
+// Create a task with tags
 const result = await tasks.create('inbox', 'New task', {
   dueDate: '2026-01-30',
   priority: 'high',
+  tags: ['work', 'urgent'],
 });
+
+// Search by tags
+const results = await tasks.search('', { tags: ['work'] });
 ```
 
 ## Configuration Paths
@@ -215,6 +243,8 @@ const result = await tasks.create('inbox', 'New task', {
 **Reminder format:** `15m`, `30m`, `1h`, `2h`, `1d` (before due time)
 
 **Special project IDs:** Use `inbox` for the inbox project
+
+**Short IDs:** First 8 characters of full ID, used for convenience
 
 ## License
 

@@ -64,14 +64,30 @@ ticktick projects delete PROJECT_ID                       # Delete project
 ### Tasks
 
 ```bash
-ticktick tasks list PROJECT_ID                            # List tasks in project
-ticktick tasks get PROJECT_ID TASK_ID                     # Get task details
-ticktick tasks create PROJECT_ID "Title" [options]        # Create task
-ticktick tasks update TASK_ID [options]                   # Update task
-ticktick tasks complete PROJECT_ID TASK_ID                # Complete task
-ticktick tasks delete PROJECT_ID TASK_ID                  # Delete task
-ticktick tasks search "keyword"                           # Search all tasks
-ticktick tasks due [days]                                 # Tasks due soon (default: 7 days)
+# Interactive mode - prompts for all fields
+ticktick tasks create
+
+# Create with command line options
+ticktick tasks create PROJECT_ID "Title" [options]
+
+# List and get tasks (use short 8-char IDs!)
+ticktick tasks list inbox
+ticktick tasks get inbox 685cfca6
+
+# Update a task
+ticktick tasks update TASK_ID [options]
+
+# Complete and delete
+ticktick tasks complete PROJECT_ID TASK_ID
+ticktick tasks delete PROJECT_ID TASK_ID
+
+# Search (by text, tags, or priority)
+ticktick tasks search "keyword"
+ticktick tasks search --tags "work,urgent"
+ticktick tasks search --priority high
+
+# Filter by due date
+ticktick tasks due [days]                                 # Default: 7 days
 ticktick tasks priority                                   # High priority tasks
 ```
 
@@ -79,15 +95,28 @@ ticktick tasks priority                                   # High priority tasks
 - `--content "description"`
 - `--due "2026-01-15"` (YYYY-MM-DD or ISO 8601)
 - `--priority none|low|medium|high`
+- `--tags "tag1,tag2"` (comma-separated)
 - `--reminder 15m|1h|1d` (before due)
 - `--title "New title"` (update only)
 
 ### Output Formats
 
 ```bash
-ticktick projects list                  # JSON (default)
-ticktick projects list --format text    # Human-readable text
+ticktick projects list                  # Table format (default)
+ticktick projects list --format json    # JSON format
 ```
+
+## Short IDs
+
+All IDs are displayed as 8-character short IDs:
+
+```
+ID       | Title                          | Due        | Pri
+--------------------------------------------------------------
+685cfca6 | Buy groceries                  | 2026-01-30 | high
+```
+
+Use these short IDs in commands instead of full UUIDs.
 
 ## Quick Reference
 
@@ -102,8 +131,11 @@ ticktick projects list --format text    # Human-readable text
 ## Examples
 
 ```bash
-# Create a task in inbox with due date and priority
-ticktick tasks create inbox "Buy groceries" --due 2026-01-30 --priority high
+# Create a task interactively
+ticktick tasks create
+
+# Create a task in inbox with due date, priority, and tags
+ticktick tasks create inbox "Buy groceries" --due 2026-01-30 --priority high --tags "shopping"
 
 # Create a task with reminder
 ticktick tasks create inbox "Meeting prep" --due 2026-01-30T09:00:00 --reminder 1h
@@ -113,6 +145,12 @@ ticktick tasks due 3
 
 # Search for tasks containing "meeting"
 ticktick tasks search "meeting"
+
+# Find all high priority tasks
+ticktick tasks search --priority high
+
+# Find tasks with specific tags
+ticktick tasks search --tags "work"
 ```
 
 ## Config Files
