@@ -156,8 +156,8 @@ async function handleTasks() {
         reminder: args.options.reminder,
       };
 
-      // Interactive mode if project or title not provided
-      if (!projectId || !title) {
+      // Interactive mode if project or title not provided and stdin is a TTY
+      if ((!projectId || !title) && process.stdin.isTTY) {
         const input = await promptTaskCreate({
           projectId,
           title,
@@ -172,6 +172,10 @@ async function handleTasks() {
           tags: input.tags,
           reminder: input.reminder,
         };
+      } else if (!projectId || !title) {
+        console.error('Usage: ticktick tasks create PROJECT_ID TITLE [options]');
+        console.error('Run without arguments for interactive mode.');
+        process.exit(1);
       }
 
       return await tasks.create(projectId, title, options);

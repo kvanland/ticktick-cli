@@ -179,11 +179,11 @@ describe('ticktick tasks', () => {
     assert.ok(stderr.includes('Usage: ticktick tasks delete PROJECT_ID TASK_ID'));
   });
 
-  test('search requires KEYWORD argument', async () => {
+  test('search requires KEYWORD or filters', async () => {
     const { stderr, code } = await runCli(['tasks', 'search']);
 
     assert.equal(code, 1);
-    assert.ok(stderr.includes('Usage: ticktick tasks search KEYWORD'));
+    assert.ok(stderr.includes('Usage: ticktick tasks search'));
   });
 });
 
