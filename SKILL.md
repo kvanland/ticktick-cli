@@ -1,6 +1,6 @@
 # TickTick Skill
 
-Manage tasks and projects in TickTick via the REST API.
+Manage tasks and projects in TickTick via the CLI.
 
 ## Setup
 
@@ -13,7 +13,7 @@ Manage tasks and projects in TickTick via the REST API.
 
 ### 2. Configure Credentials
 
-Create `~/.clawdbot/ticktick/config.json`:
+Create `~/.config/ticktick/config.json`:
 
 ```json
 {
@@ -27,149 +27,95 @@ Create `~/.clawdbot/ticktick/config.json`:
 Or set environment variables:
 - `TICKTICK_CLIENT_ID`
 - `TICKTICK_CLIENT_SECRET`
-- `TICKTICK_REDIRECT_URI` (optional, defaults to http://localhost:8080/callback)
+- `TICKTICK_REDIRECT_URI` (optional)
 - `TICKTICK_REGION` (optional: "global" or "china")
 
 ### 3. Authenticate
 
-Run the auth script to complete OAuth:
-
 ```bash
-node /root/clawd/skills/ticktick/scripts/auth.mjs setup
+ticktick auth login
+# Visit the URL and authorize
+# Copy the code from the redirect URL
+
+ticktick auth exchange YOUR_CODE
 ```
 
-This will:
-1. Print an authorization URL
-2. You visit the URL and authorize
-3. Copy the `code` parameter from the redirect URL
-4. Run: `node /root/clawd/skills/ticktick/scripts/auth.mjs exchange CODE`
-
-Tokens are stored in `~/.clawdbot/ticktick/tokens.json` and auto-refresh.
-
 ## Usage
-
-All scripts are in `/root/clawd/skills/ticktick/scripts/`.
 
 ### Authentication
 
 ```bash
-# Check auth status
-node scripts/auth.mjs status
-
-# Get authorization URL
-node scripts/auth.mjs setup
-
-# Exchange code for tokens
-node scripts/auth.mjs exchange AUTH_CODE
-
-# Refresh token manually
-node scripts/auth.mjs refresh
-
-# Logout (clear tokens)
-node scripts/auth.mjs logout
+ticktick auth status           # Check auth status
+ticktick auth login            # Get authorization URL
+ticktick auth exchange CODE    # Exchange code for tokens
+ticktick auth refresh          # Refresh token manually
+ticktick auth logout           # Clear tokens
 ```
 
 ### Projects
 
 ```bash
-# List all projects
-node scripts/projects.mjs list
-
-# Get project with tasks
-node scripts/projects.mjs get PROJECT_ID
-
-# Create project
-node scripts/projects.mjs create "Project Name" [--color "#ff6b6b"] [--view list|kanban|timeline]
-
-# Delete project
-node scripts/projects.mjs delete PROJECT_ID
+ticktick projects list                                    # List all projects
+ticktick projects get PROJECT_ID                          # Get project with tasks
+ticktick projects create "Name" --color "#ff6b6b"         # Create project
+ticktick projects delete PROJECT_ID                       # Delete project
 ```
 
 ### Tasks
 
 ```bash
-# List tasks in project
-node scripts/tasks.mjs list PROJECT_ID
+ticktick tasks list PROJECT_ID                            # List tasks in project
+ticktick tasks get PROJECT_ID TASK_ID                     # Get task details
+ticktick tasks create PROJECT_ID "Title" [options]        # Create task
+ticktick tasks update TASK_ID [options]                   # Update task
+ticktick tasks complete PROJECT_ID TASK_ID                # Complete task
+ticktick tasks delete PROJECT_ID TASK_ID                  # Delete task
+ticktick tasks search "keyword"                           # Search all tasks
+ticktick tasks due [days]                                 # Tasks due soon (default: 7 days)
+ticktick tasks priority                                   # High priority tasks
+```
 
-# Get task details
-node scripts/tasks.mjs get PROJECT_ID TASK_ID
+**Create/Update options:**
+- `--content "description"`
+- `--due "2026-01-15"` (YYYY-MM-DD or ISO 8601)
+- `--priority none|low|medium|high`
+- `--reminder 15m|1h|1d` (before due)
+- `--title "New title"` (update only)
 
-# Create task
-node scripts/tasks.mjs create PROJECT_ID "Task title" [options]
-#   --content "description"
-#   --due "2024-01-15T17:00:00Z"
-#   --priority none|low|medium|high
-#   --reminder 15m|1h|1d (before due)
+### Output Formats
 
-# Update task
-node scripts/tasks.mjs update TASK_ID [options]
-#   --title "New title"
-#   --content "New description"
-#   --priority none|low|medium|high
-#   --due "2024-01-15T17:00:00Z"
-
-# Complete task
-node scripts/tasks.mjs complete PROJECT_ID TASK_ID
-
-# Delete task
-node scripts/tasks.mjs delete PROJECT_ID TASK_ID
-
-# Search tasks
-node scripts/tasks.mjs search "keyword"
-
-# Get tasks due soon (next N days)
-node scripts/tasks.mjs due [days=7]
-
-# Get high priority tasks
-node scripts/tasks.mjs priority
+```bash
+ticktick projects list                  # JSON (default)
+ticktick projects list --format text    # Human-readable text
 ```
 
 ## Quick Reference
 
 **Priority values:** none (0), low (1), medium (3), high (5)
 
-**Date format:** ISO 8601 (`2024-01-15T17:00:00Z` or `2024-01-15T17:00:00+0000`)
+**Date format:** `YYYY-MM-DD` or ISO 8601 with time
 
-**Reminder format:** `15m`, `30m`, `1h`, `2h`, `1d` (before due time)
+**Reminder format:** `15m`, `30m`, `1h`, `2h`, `1d`
 
-## Testing
+**Special project ID:** Use `inbox` for the inbox project
 
-Run all tests:
+## Examples
+
 ```bash
-node /root/clawd/skills/ticktick/scripts/test.mjs
+# Create a task in inbox with due date and priority
+ticktick tasks create inbox "Buy groceries" --due 2026-01-30 --priority high
+
+# Create a task with reminder
+ticktick tasks create inbox "Meeting prep" --due 2026-01-30T09:00:00 --reminder 1h
+
+# Get tasks due in the next 3 days
+ticktick tasks due 3
+
+# Search for tasks containing "meeting"
+ticktick tasks search "meeting"
 ```
 
-Or run individual test files:
-```bash
-# Unit tests for lib functions (no API calls)
-node --test scripts/lib.test.mjs
+## Config Files
 
-# Integration tests for CLI behavior
-node --test scripts/tasks.test.mjs
-```
-
-### Test Coverage
-
-- **lib.test.mjs**: Pure function tests
-  - `parseReminder()` — "15m", "1h", "1d" → iCalendar TRIGGER format
-  - `parsePriority()` / `formatPriority()` — priority string ↔ number
-  - `isTokenExpired()` — token expiration with 60s buffer
-  - `getAuthorizationUrl()` — OAuth URL generation
-
-- **tasks.test.mjs**: CLI behavior tests
-  - Argument validation for all commands
-  - Due date format expectations
-  - Priority value mapping
-  - Task status values
-
-### Adding Tests
-
-When adding new functionality:
-1. Add unit tests for pure functions in `lib.test.mjs`
-2. Add CLI/behavior tests in `tasks.test.mjs`
-3. Run `node scripts/test.mjs` to verify
-
-## Files
-
-- `~/.clawdbot/ticktick/config.json` - Client credentials
-- `~/.clawdbot/ticktick/tokens.json` - OAuth tokens (auto-managed)
+- `~/.config/ticktick/config.json` - Client credentials
+- `~/.config/ticktick/tokens.json` - OAuth tokens (auto-managed)
