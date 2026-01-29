@@ -15,6 +15,7 @@ import {
 import * as auth from '../lib/auth.mjs';
 import * as tasks from '../lib/tasks.mjs';
 import * as projects from '../lib/projects.mjs';
+import { promptTaskCreate } from '../lib/interactive.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -144,18 +145,37 @@ async function handleTasks() {
         process.exit(1);
       }
       return await tasks.get(args.positional[0], args.positional[1]);
-    case 'create':
-      if (!args.positional[0] || !args.positional[1]) {
-        console.error('Usage: ticktick tasks create PROJECT_ID TITLE [options]');
-        process.exit(1);
-      }
-      return await tasks.create(args.positional[0], args.positional[1], {
+    case 'create': {
+      let projectId = args.positional[0];
+      let title = args.positional[1];
+      let options = {
         content: args.options.content,
         dueDate: args.options.due,
         priority: args.options.priority,
         tags: args.options.tags,
         reminder: args.options.reminder,
-      });
+      };
+
+      // Interactive mode if project or title not provided
+      if (!projectId || !title) {
+        const input = await promptTaskCreate({
+          projectId,
+          title,
+          ...options,
+        });
+        projectId = input.projectId;
+        title = input.title;
+        options = {
+          content: input.content,
+          dueDate: input.dueDate,
+          priority: input.priority,
+          tags: input.tags,
+          reminder: input.reminder,
+        };
+      }
+
+      return await tasks.create(projectId, title, options);
+    }
     case 'update':
       if (!args.positional[0]) {
         console.error('Usage: ticktick tasks update TASK_ID [options]');
