@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * TickTick CLI - Unit Tests for lib/core.mjs
- * Run: node --test test/core.test.mjs
+ * TickTick CLI - Unit Tests for lib/core.js
+ * Run: node --test test/core.test.js
  */
 
 import { test, describe } from 'node:test';
@@ -13,7 +13,7 @@ import {
   isTokenExpired,
   getAuthorizationUrl,
   Priority,
-} from '../lib/core.mjs';
+} from '../lib/core.js';
 
 describe('parseReminder', () => {
   test('parses minutes correctly', () => {

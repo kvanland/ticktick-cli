@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * TickTick CLI - CLI Integration Tests
- * Run: node --test test/cli.test.mjs
+ * Run: node --test test/cli.test.js
  */
 
 import { test, describe } from 'node:test';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CLI_PATH = join(__dirname, '..', 'bin', 'ticktick.mjs');
+const CLI_PATH = join(__dirname, '..', 'bin', 'ticktick.js');
 
 /**
  * Run the CLI with given args

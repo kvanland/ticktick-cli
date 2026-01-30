@@ -4,18 +4,18 @@
   "description": "CLI and MCP server for TickTick task management",
   "type": "module",
   "bin": {
-    "ticktick": "./bin/ticktick.mjs",
-    "ticktick-mcp": "./bin/ticktick-mcp.mjs"
+    "ticktick": "./bin/ticktick.js",
+    "ticktick-mcp": "./bin/ticktick-mcp.js"
   },
   "exports": {
-    ".": "./lib/core.mjs",
-    "./core": "./lib/core.mjs",
-    "./auth": "./lib/auth.mjs",
-    "./tasks": "./lib/tasks.mjs",
-    "./projects": "./lib/projects.mjs"
+    ".": "./lib/core.js",
+    "./core": "./lib/core.js",
+    "./auth": "./lib/auth.js",
+    "./tasks": "./lib/tasks.js",
+    "./projects": "./lib/projects.js"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.js"
   },
   "keywords": [
     "ticktick",

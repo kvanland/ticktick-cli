@@ -11,12 +11,12 @@ import {
   getAuthHelp,
   getProjectsHelp,
   getTasksHelp,
-} from '../lib/cli.mjs';
-import * as auth from '../lib/auth.mjs';
-import * as tasks from '../lib/tasks.mjs';
-import * as projects from '../lib/projects.mjs';
-import { promptTaskCreate } from '../lib/interactive.mjs';
-import { runSetup } from '../lib/setup.mjs';
+} from '../lib/cli.js';
+import * as auth from '../lib/auth.js';
+import * as tasks from '../lib/tasks.js';
+import * as projects from '../lib/projects.js';
+import { promptTaskCreate } from '../lib/interactive.js';
+import { runSetup } from '../lib/setup.js';
 
 const args = parseArgs(process.argv.slice(2));
 
