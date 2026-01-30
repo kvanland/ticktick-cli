@@ -158,11 +158,13 @@ describe('ticktick tasks', () => {
     assert.ok(stderr.includes('Usage: ticktick tasks get PROJECT_ID TASK_ID'));
   });
 
-  test('create requires PROJECT_ID and TITLE', async () => {
-    const { stderr, code } = await runCli(['tasks', 'create', 'proj-1']);
+  test('create with single arg treats it as title (needs auth)', async () => {
+    // With the new CLI, a single argument is treated as the title (default project)
+    // This will fail on auth, not on argument parsing
+    const { stderr } = await runCli(['tasks', 'create', 'My Task Title']);
 
-    assert.equal(code, 1);
-    assert.ok(stderr.includes('Usage: ticktick tasks create PROJECT_ID TITLE'));
+    // Should fail on auth/config, not on missing argument
+    assert.ok(!stderr.includes('Usage:'));
   });
 
   test('complete requires PROJECT_ID and TASK_ID', async () => {
