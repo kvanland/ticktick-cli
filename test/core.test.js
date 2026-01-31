@@ -32,15 +32,33 @@ describe('parseReminder', () => {
     assert.equal(parseReminder('7d'), 'TRIGGER:-P7D');
   });
 
-  test('returns null for invalid input', () => {
+  test('returns null for null/undefined/empty input', () => {
     assert.equal(parseReminder(null), null);
     assert.equal(parseReminder(undefined), null);
     assert.equal(parseReminder(''), null);
-    assert.equal(parseReminder('15'), null);
-    assert.equal(parseReminder('m15'), null);
-    assert.equal(parseReminder('15x'), null);
-    assert.equal(parseReminder('abc'), null);
-    assert.equal(parseReminder('15min'), null);
+  });
+
+  test('throws error for invalid reminder format', () => {
+    assert.throws(
+      () => parseReminder('15'),
+      { message: 'Invalid reminder "15". Use format like: 15m, 1h, 1d' }
+    );
+    assert.throws(
+      () => parseReminder('m15'),
+      /Invalid reminder "m15"/
+    );
+    assert.throws(
+      () => parseReminder('15x'),
+      /Invalid reminder "15x"/
+    );
+    assert.throws(
+      () => parseReminder('abc'),
+      /Invalid reminder "abc"/
+    );
+    assert.throws(
+      () => parseReminder('15min'),
+      /Invalid reminder "15min"/
+    );
   });
 });
 
@@ -60,12 +78,25 @@ describe('parsePriority', () => {
     assert.equal(parsePriority('HIGH'), Priority.High);
   });
 
-  test('returns undefined for invalid input', () => {
+  test('returns undefined for null/undefined/empty input', () => {
     assert.equal(parsePriority(null), undefined);
     assert.equal(parsePriority(undefined), undefined);
     assert.equal(parsePriority(''), undefined);
-    assert.equal(parsePriority('urgent'), undefined);
-    assert.equal(parsePriority('1'), undefined);
+  });
+
+  test('throws error for invalid priority strings', () => {
+    assert.throws(
+      () => parsePriority('urgent'),
+      { message: 'Invalid priority "urgent". Valid options: none, low, medium, high' }
+    );
+    assert.throws(
+      () => parsePriority('1'),
+      { message: 'Invalid priority "1". Valid options: none, low, medium, high' }
+    );
+    assert.throws(
+      () => parsePriority('critical'),
+      /Invalid priority "critical"/
+    );
   });
 });
 
@@ -78,6 +109,9 @@ describe('formatPriority', () => {
   });
 
   test('returns none for unknown values', () => {
+    // NOTE: Unknown priority values silently become 'none'.
+    // If TickTick API returns priority=2 or 4, we lose that information.
+    // Consider: Return 'unknown(2)' or log a warning for debugging.
     assert.equal(formatPriority(2), 'none');
     assert.equal(formatPriority(4), 'none');
     assert.equal(formatPriority(99), 'none');
