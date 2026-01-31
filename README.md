@@ -1,5 +1,7 @@
 # ticktick-cli
 
+> **Disclaimer:** This is an unofficial, community-maintained project and is not affiliated with, endorsed by, or connected to TickTick or Appest. "TickTick" is a trademark of Appest. This tool uses the official [TickTick Open API](https://developer.ticktick.com/).
+
 CLI and MCP server for TickTick task management.
 
 ## Quickstart
