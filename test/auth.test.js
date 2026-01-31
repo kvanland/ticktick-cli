@@ -8,8 +8,6 @@
 import { test, describe, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-// We need to mock the core module before importing auth
-// Create mock functions that will be controlled in tests
 let mockLoadConfig;
 let mockLoadTokens;
 let mockSaveTokens;
@@ -19,28 +17,6 @@ let mockGetAuthorizationUrl;
 let mockExchangeCode;
 let mockRefreshAccessToken;
 
-// Store the original module for constants
-const originalCore = await import('../lib/core.js');
-
-// Create a mock module cache
-const mockCore = {
-  ...originalCore,
-  loadConfig: () => mockLoadConfig(),
-  loadTokens: () => mockLoadTokens(),
-  saveTokens: (tokens) => mockSaveTokens(tokens),
-  clearTokens: () => mockClearTokens(),
-  isTokenExpired: (tokens) => mockIsTokenExpired(tokens),
-  getAuthorizationUrl: (config) => mockGetAuthorizationUrl(config),
-  exchangeCode: (config, code) => mockExchangeCode(config, code),
-  refreshAccessToken: (config, refreshToken) => mockRefreshAccessToken(config, refreshToken),
-};
-
-// Mock the core module
-mock.module('../lib/core.js', {
-  namedExports: mockCore,
-});
-
-// Now import auth (it will use our mocked core)
 const auth = await import('../lib/auth.js');
 
 describe('auth.status', () => {
@@ -52,8 +28,13 @@ describe('auth.status', () => {
 
   test('returns unauthenticated when no tokens exist', async () => {
     mockLoadTokens = mock.fn(() => null);
+    const mockDeps = {
+      loadTokens: mockLoadTokens,
+      isTokenExpired: mock.fn(),
+      TOKEN_PATH: '/mock/path',
+    };
 
-    const result = await auth.status();
+    const result = await auth.status(mockDeps);
 
     assert.equal(result.authenticated, false);
     assert.ok(result.message.includes('Not authenticated'));
@@ -62,8 +43,13 @@ describe('auth.status', () => {
 
   test('returns unauthenticated when tokens have no accessToken', async () => {
     mockLoadTokens = mock.fn(() => ({ refreshToken: 'some-refresh-token' }));
+    const mockDeps = {
+      loadTokens: mockLoadTokens,
+      isTokenExpired: mock.fn(),
+      TOKEN_PATH: '/mock/path',
+    };
 
-    const result = await auth.status();
+    const result = await auth.status(mockDeps);
 
     assert.equal(result.authenticated, false);
     assert.ok(result.message.includes('Not authenticated'));
@@ -76,8 +62,13 @@ describe('auth.status', () => {
       expiresAt,
     }));
     mockIsTokenExpired = mock.fn(() => false);
+    const mockDeps = {
+      loadTokens: mockLoadTokens,
+      isTokenExpired: mockIsTokenExpired,
+      TOKEN_PATH: '/mock/path',
+    };
 
-    const result = await auth.status();
+    const result = await auth.status(mockDeps);
 
     assert.equal(result.authenticated, true);
     assert.equal(result.expired, false);
@@ -96,8 +87,13 @@ describe('auth.status', () => {
       expiresAt,
     }));
     mockIsTokenExpired = mock.fn(() => true);
+    const mockDeps = {
+      loadTokens: mockLoadTokens,
+      isTokenExpired: mockIsTokenExpired,
+      TOKEN_PATH: '/mock/path',
+    };
 
-    const result = await auth.status();
+    const result = await auth.status(mockDeps);
 
     assert.equal(result.authenticated, true);
     assert.equal(result.expired, true);
@@ -111,10 +107,15 @@ describe('auth.status', () => {
       expiresAt: Date.now() + 3600000,
     }));
     mockIsTokenExpired = mock.fn(() => false);
+    const mockDeps = {
+      loadTokens: mockLoadTokens,
+      isTokenExpired: mockIsTokenExpired,
+      TOKEN_PATH: '/mock/token/path',
+    };
 
-    const result = await auth.status();
+    const result = await auth.status(mockDeps);
 
-    assert.equal(result.tokenPath, originalCore.TOKEN_PATH);
+    assert.equal(result.tokenPath, '/mock/token/path');
   });
 });
 
@@ -136,8 +137,12 @@ describe('auth.login', () => {
       url: 'https://ticktick.com/oauth/authorize?client_id=test-client-id&state=abc123',
       state: 'abc123',
     }));
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      getAuthorizationUrl: mockGetAuthorizationUrl,
+    };
 
-    const result = await auth.login();
+    const result = await auth.login(mockDeps);
 
     assert.ok(result.message.includes('authorization URL'));
     assert.equal(result.url, 'https://ticktick.com/oauth/authorize?client_id=test-client-id&state=abc123');
@@ -158,8 +163,12 @@ describe('auth.login', () => {
       assert.deepEqual(config, mockConfig);
       return { url: 'https://dida365.com/oauth/authorize', state: 'xyz789' };
     });
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      getAuthorizationUrl: mockGetAuthorizationUrl,
+    };
 
-    const result = await auth.login();
+    const result = await auth.login(mockDeps);
 
     assert.equal(mockGetAuthorizationUrl.mock.calls.length, 1);
     assert.equal(result.state, 'xyz789');
@@ -188,13 +197,19 @@ describe('auth.exchange', () => {
     mockLoadConfig = mock.fn(() => mockConfig);
     mockExchangeCode = mock.fn(() => mockTokens);
     mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      exchangeCode: mockExchangeCode,
+      saveTokens: mockSaveTokens,
+      TOKEN_PATH: '/mock/token/path',
+    };
 
-    const result = await auth.exchange('auth-code-123');
+    const result = await auth.exchange('auth-code-123', mockDeps);
 
     assert.equal(result.success, true);
     assert.ok(result.message.includes('successful'));
     assert.ok(result.expiresAt);
-    assert.equal(result.tokenPath, originalCore.TOKEN_PATH);
+    assert.equal(result.tokenPath, '/mock/token/path');
 
     // Verify exchangeCode was called with correct arguments
     assert.equal(mockExchangeCode.mock.calls.length, 1);
@@ -215,8 +230,14 @@ describe('auth.exchange', () => {
       expiresAt,
     }));
     mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      exchangeCode: mockExchangeCode,
+      saveTokens: mockSaveTokens,
+      TOKEN_PATH: '/mock/token/path',
+    };
 
-    const result = await auth.exchange('code');
+    const result = await auth.exchange('code', mockDeps);
 
     // Verify expiresAt is valid ISO string
     const parsedDate = new Date(result.expiresAt);
@@ -229,9 +250,16 @@ describe('auth.exchange', () => {
     mockExchangeCode = mock.fn(() => {
       throw new Error('Token exchange failed: invalid_grant');
     });
+    mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      exchangeCode: mockExchangeCode,
+      saveTokens: mockSaveTokens,
+      TOKEN_PATH: '/mock/token/path',
+    };
 
     await assert.rejects(
-      () => auth.exchange('invalid-code'),
+      () => auth.exchange('invalid-code', mockDeps),
       { message: 'Token exchange failed: invalid_grant' }
     );
 
@@ -251,9 +279,17 @@ describe('auth.refresh', () => {
   test('throws error when no tokens exist', async () => {
     mockLoadConfig = mock.fn(() => ({ clientId: 'test', clientSecret: 'test' }));
     mockLoadTokens = mock.fn(() => null);
+    mockRefreshAccessToken = mock.fn();
+    mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      loadTokens: mockLoadTokens,
+      refreshAccessToken: mockRefreshAccessToken,
+      saveTokens: mockSaveTokens,
+    };
 
     await assert.rejects(
-      () => auth.refresh(),
+      () => auth.refresh(mockDeps),
       { message: 'No refresh token available. Run: ticktick auth login' }
     );
   });
@@ -261,9 +297,17 @@ describe('auth.refresh', () => {
   test('throws error when tokens have no refreshToken', async () => {
     mockLoadConfig = mock.fn(() => ({ clientId: 'test', clientSecret: 'test' }));
     mockLoadTokens = mock.fn(() => ({ accessToken: 'token' }));
+    mockRefreshAccessToken = mock.fn();
+    mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      loadTokens: mockLoadTokens,
+      refreshAccessToken: mockRefreshAccessToken,
+      saveTokens: mockSaveTokens,
+    };
 
     await assert.rejects(
-      () => auth.refresh(),
+      () => auth.refresh(mockDeps),
       { message: 'No refresh token available. Run: ticktick auth login' }
     );
   });
@@ -289,8 +333,14 @@ describe('auth.refresh', () => {
     mockLoadTokens = mock.fn(() => existingTokens);
     mockRefreshAccessToken = mock.fn(() => newTokens);
     mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      loadTokens: mockLoadTokens,
+      refreshAccessToken: mockRefreshAccessToken,
+      saveTokens: mockSaveTokens,
+    };
 
-    const result = await auth.refresh();
+    const result = await auth.refresh(mockDeps);
 
     assert.equal(result.success, true);
     assert.ok(result.message.includes('refreshed'));
@@ -316,8 +366,14 @@ describe('auth.refresh', () => {
       expiresAt,
     }));
     mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      loadTokens: mockLoadTokens,
+      refreshAccessToken: mockRefreshAccessToken,
+      saveTokens: mockSaveTokens,
+    };
 
-    const result = await auth.refresh();
+    const result = await auth.refresh(mockDeps);
 
     const parsedDate = new Date(result.expiresAt);
     assert.ok(!isNaN(parsedDate.getTime()));
@@ -330,9 +386,16 @@ describe('auth.refresh', () => {
     mockRefreshAccessToken = mock.fn(() => {
       throw new Error('Token refresh failed: invalid_grant');
     });
+    mockSaveTokens = mock.fn();
+    const mockDeps = {
+      loadConfig: mockLoadConfig,
+      loadTokens: mockLoadTokens,
+      refreshAccessToken: mockRefreshAccessToken,
+      saveTokens: mockSaveTokens,
+    };
 
     await assert.rejects(
-      () => auth.refresh(),
+      () => auth.refresh(mockDeps),
       { message: 'Token refresh failed: invalid_grant' }
     );
 
@@ -348,8 +411,11 @@ describe('auth.logout', () => {
 
   test('clears tokens and returns success', async () => {
     mockClearTokens = mock.fn();
+    const mockDeps = {
+      clearTokens: mockClearTokens,
+    };
 
-    const result = await auth.logout();
+    const result = await auth.logout(mockDeps);
 
     assert.equal(result.success, true);
     assert.ok(result.message.includes('Logged out'));
@@ -361,9 +427,12 @@ describe('auth.logout', () => {
 
   test('does not throw even if clearTokens has no tokens to clear', async () => {
     mockClearTokens = mock.fn();
+    const mockDeps = {
+      clearTokens: mockClearTokens,
+    };
 
     // Should not throw
-    const result = await auth.logout();
+    const result = await auth.logout(mockDeps);
 
     assert.equal(result.success, true);
   });
@@ -372,9 +441,12 @@ describe('auth.logout', () => {
     mockClearTokens = mock.fn(() => {
       throw new Error('Permission denied');
     });
+    const mockDeps = {
+      clearTokens: mockClearTokens,
+    };
 
     await assert.rejects(
-      () => auth.logout(),
+      () => auth.logout(mockDeps),
       { message: 'Permission denied' }
     );
   });

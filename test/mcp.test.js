@@ -8,88 +8,78 @@
 import { test, describe, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-// Create mock functions for all dependencies
-let mockAuthStatus;
-let mockProjectsList;
-let mockProjectsGet;
-let mockTasksList;
-let mockTasksGet;
-let mockTasksCreate;
-let mockTasksUpdate;
-let mockTasksComplete;
-let mockTasksRemove;
-let mockTasksSearch;
-let mockTasksDue;
-let mockTasksPriority;
-
-// Mock the auth module
-mock.module('../lib/auth.js', {
-  namedExports: {
-    status: (...args) => mockAuthStatus(...args),
-  },
-});
-
-// Mock the projects module
-mock.module('../lib/projects.js', {
-  namedExports: {
-    list: (...args) => mockProjectsList(...args),
-    get: (...args) => mockProjectsGet(...args),
-  },
-});
-
-// Mock the tasks module
-mock.module('../lib/tasks.js', {
-  namedExports: {
-    list: (...args) => mockTasksList(...args),
-    get: (...args) => mockTasksGet(...args),
-    create: (...args) => mockTasksCreate(...args),
-    update: (...args) => mockTasksUpdate(...args),
-    complete: (...args) => mockTasksComplete(...args),
-    remove: (...args) => mockTasksRemove(...args),
-    search: (...args) => mockTasksSearch(...args),
-    due: (...args) => mockTasksDue(...args),
-    priority: (...args) => mockTasksPriority(...args),
-  },
-});
-
-// Import createServer after mocking dependencies
 const { createServer } = await import('../lib/mcp.js');
 
+let mockDeps;
+
+const buildMockDeps = () => ({
+  auth: {
+    status: mock.fn(),
+  },
+  projects: {
+    list: mock.fn(),
+    get: mock.fn(),
+  },
+  tasks: {
+    list: mock.fn(),
+    get: mock.fn(),
+    create: mock.fn(),
+    update: mock.fn(),
+    complete: mock.fn(),
+    remove: mock.fn(),
+    search: mock.fn(),
+    due: mock.fn(),
+    priority: mock.fn(),
+  },
+});
+
 describe('createServer', () => {
+  beforeEach(() => {
+    mockDeps = buildMockDeps();
+  });
+
   test('returns a server object', () => {
-    const server = createServer();
+    const server = createServer(mockDeps);
     assert.ok(server, 'Server should be defined');
     assert.equal(typeof server, 'object', 'Server should be an object');
   });
 
   test('server has tool method', () => {
-    const server = createServer();
+    const server = createServer(mockDeps);
     assert.equal(typeof server.tool, 'function', 'Server should have a tool method');
   });
 
   test('server has connect method', () => {
-    const server = createServer();
+    const server = createServer(mockDeps);
     assert.equal(typeof server.connect, 'function', 'Server should have a connect method');
   });
 
   test('server has close method', () => {
-    const server = createServer();
+    const server = createServer(mockDeps);
     assert.equal(typeof server.close, 'function', 'Server should have a close method');
   });
 });
 
 describe('MCP server configuration', () => {
+  beforeEach(() => {
+    mockDeps = buildMockDeps();
+  });
+
   test('server is properly configured', () => {
-    const server = createServer();
+    const server = createServer(mockDeps);
     assert.ok(server, 'Server should exist');
     assert.ok(typeof server.tool === 'function', 'Server should have tool method');
   });
 });
 
 describe('Multiple server instances', () => {
+  beforeEach(() => {
+    mockDeps = buildMockDeps();
+  });
+
   test('createServer returns independent instances', () => {
-    const server1 = createServer();
-    const server2 = createServer();
+    const server1 = createServer(mockDeps);
+    const server2 = createServer(mockDeps);
 
     assert.ok(server1 !== server2, 'Servers should be different instances');
   });

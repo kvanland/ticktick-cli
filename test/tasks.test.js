@@ -5,47 +5,37 @@
  * Run: node --test test/tasks.test.js
  */
 
-import { test, describe, mock, beforeEach, afterEach } from 'node:test';
+import { test, describe, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
-// We need to mock the core module before importing tasks
-// Create mock functions that will be controlled in tests
-let mockApiRequest;
-let mockLoadConfig;
-let mockLoadTokens;
-let mockSaveTokens;
+import * as tasks from '../lib/tasks.js';
 
-// Store the original module
-const originalCore = await import('../lib/core.js');
-
-// Create a mock module cache
-const mockCore = {
-  ...originalCore,
-  apiRequest: (...args) => mockApiRequest(...args),
-  loadConfig: () => mockLoadConfig(),
-  loadTokens: () => mockLoadTokens(),
-  saveTokens: (tokens) => mockSaveTokens(tokens),
-};
-
-// Mock the core module
-mock.module('../lib/core.js', {
-  namedExports: mockCore,
+const makeDeps = (apiRequest) => ({
+  apiRequest,
+  shortId: (id) => id.substring(0, 8),
+  isShortId: (id) => id.length <= 8,
+  formatPriority: (priority) => {
+    if (priority === 5) return 'high';
+    if (priority === 3) return 'medium';
+    return 'none';
+  },
+  parsePriority: (priority) => {
+    if (!priority) return undefined;
+    if (priority === 'high') return 5;
+    if (priority === 'medium') return 3;
+    if (priority === 'low') return 1;
+    return 0;
+  },
+  parseReminder: (reminder) => {
+    if (!reminder) return null;
+    if (reminder === '1h') return 'TRIGGER:-PT1H';
+    return null;
+  },
 });
 
-// Now import tasks (it will use our mocked core)
-const tasks = await import('../lib/tasks.js');
-
 describe('tasks.list', () => {
-  beforeEach(() => {
-    // Reset mocks
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-    mockSaveTokens = mock.fn();
-  });
-
   test('returns formatted tasks from project', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789', name: 'Work' }];
       }
@@ -76,7 +66,7 @@ describe('tasks.list', () => {
       return {};
     });
 
-    const result = await tasks.list('proj1234');
+    const result = await tasks.list('proj1234', makeDeps(mockApiRequest));
 
     assert.equal(result.length, 2);
     assert.equal(result[0].id, 'task1234');
@@ -91,7 +81,7 @@ describe('tasks.list', () => {
   });
 
   test('handles empty project ID by looking up inbox', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [
           { id: 'inbox123456789', name: 'Inbox' },
@@ -104,7 +94,7 @@ describe('tasks.list', () => {
       return {};
     });
 
-    const result = await tasks.list('');
+    const result = await tasks.list('', makeDeps(mockApiRequest));
 
     assert.equal(result.length, 1);
     assert.equal(result[0].title, 'Inbox task');
@@ -114,7 +104,7 @@ describe('tasks.list', () => {
   });
 
   test('throws error when inbox not found and no project ID provided', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789', name: 'Work' }]; // No inbox
       }
@@ -122,21 +112,15 @@ describe('tasks.list', () => {
     });
 
     await assert.rejects(
-      () => tasks.list(''),
+      () => tasks.list('', makeDeps(mockApiRequest)),
       { message: 'Could not find inbox project. Please specify a project ID.' }
     );
   });
 });
 
 describe('tasks.get', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('returns full task details', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789', name: 'Work' }];
       }
@@ -166,7 +150,7 @@ describe('tasks.get', () => {
       return {};
     });
 
-    const result = await tasks.get('proj1234', 'task1234');
+    const result = await tasks.get('proj1234', 'task1234', makeDeps(mockApiRequest));
 
     assert.equal(result.id, 'task1234');
     assert.equal(result.fullId, 'task123456789');
@@ -181,14 +165,8 @@ describe('tasks.get', () => {
 });
 
 describe('tasks.create', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('creates task with minimal options', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST' && path === '/task') {
         return {
           id: 'newtask123456',
@@ -204,7 +182,7 @@ describe('tasks.create', () => {
       return {};
     });
 
-    const result = await tasks.create('proj1234', 'New Task');
+    const result = await tasks.create('proj1234', 'New Task', undefined, makeDeps(mockApiRequest));
 
     assert.equal(result.success, true);
     assert.equal(result.task.title, 'New Task');
@@ -217,7 +195,7 @@ describe('tasks.create', () => {
   });
 
   test('creates task with all options', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST' && path === '/task') {
         return {
           id: 'newtask123456',
@@ -240,7 +218,7 @@ describe('tasks.create', () => {
       priority: 'high',
       tags: ['urgent', 'work'],
       reminder: '1h',
-    });
+    }, makeDeps(mockApiRequest));
 
     assert.equal(result.success, true);
 
@@ -255,7 +233,7 @@ describe('tasks.create', () => {
   });
 
   test('parses comma-separated tags string', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST') {
         return { id: 'task123', projectId: 'proj123', title: body.title, tags: body.tags };
       }
@@ -265,7 +243,7 @@ describe('tasks.create', () => {
       return {};
     });
 
-    await tasks.create('proj1234', 'Task', { tags: 'tag1, tag2, tag3' });
+    await tasks.create('proj1234', 'Task', { tags: 'tag1, tag2, tag3' }, makeDeps(mockApiRequest));
 
     const postCall = mockApiRequest.mock.calls.find(c => c.arguments[0] === 'POST');
     assert.deepEqual(postCall.arguments[2].tags, ['tag1', 'tag2', 'tag3']);
@@ -273,14 +251,8 @@ describe('tasks.create', () => {
 });
 
 describe('tasks.update', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('updates task with provided options', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST' && path.includes('/task/')) {
         return {
           id: body.id,
@@ -303,7 +275,7 @@ describe('tasks.update', () => {
     const result = await tasks.update('task1234', {
       title: 'Updated Title',
       priority: 'medium',
-    });
+    }, makeDeps(mockApiRequest));
 
     assert.equal(result.success, true);
 
@@ -315,7 +287,7 @@ describe('tasks.update', () => {
   });
 
   test('only includes provided fields in update', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST' && path.includes('/task/')) {
         return { id: body.id, projectId: 'proj123', title: 'Task', priority: 0, tags: [] };
       }
@@ -328,7 +300,7 @@ describe('tasks.update', () => {
       return {};
     });
 
-    await tasks.update('task1234', { dueDate: '2026-03-01' });
+    await tasks.update('task1234', { dueDate: '2026-03-01' }, makeDeps(mockApiRequest));
 
     const postCall = mockApiRequest.mock.calls.find(c =>
       c.arguments[0] === 'POST' && c.arguments[1].includes('/task/')
@@ -341,14 +313,8 @@ describe('tasks.update', () => {
 });
 
 describe('tasks.complete', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('marks task as complete', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -361,7 +327,7 @@ describe('tasks.complete', () => {
       return {};
     });
 
-    const result = await tasks.complete('proj1234', 'task1234');
+    const result = await tasks.complete('proj1234', 'task1234', makeDeps(mockApiRequest));
 
     assert.equal(result.success, true);
     assert.ok(result.message.includes('task1234'));
@@ -375,14 +341,8 @@ describe('tasks.complete', () => {
 });
 
 describe('tasks.remove', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('deletes task', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -395,7 +355,7 @@ describe('tasks.remove', () => {
       return {};
     });
 
-    const result = await tasks.remove('proj1234', 'task1234');
+    const result = await tasks.remove('proj1234', 'task1234', makeDeps(mockApiRequest));
 
     assert.equal(result.success, true);
     assert.ok(result.message.includes('deleted'));
@@ -407,14 +367,8 @@ describe('tasks.remove', () => {
 });
 
 describe('tasks.search', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('searches tasks by keyword', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [
           { id: 'proj1', name: 'Work' },
@@ -439,7 +393,7 @@ describe('tasks.search', () => {
       return {};
     });
 
-    const result = await tasks.search('meeting');
+    const result = await tasks.search('meeting', undefined, makeDeps(mockApiRequest));
 
     assert.equal(result.keyword, 'meeting');
     assert.equal(result.count, 2);
@@ -452,7 +406,7 @@ describe('tasks.search', () => {
   });
 
   test('filters by tags', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj1', name: 'Work' }];
       }
@@ -468,14 +422,14 @@ describe('tasks.search', () => {
       return {};
     });
 
-    const result = await tasks.search('', { tags: ['urgent'] });
+    const result = await tasks.search('', { tags: ['urgent'] }, makeDeps(mockApiRequest));
 
     assert.equal(result.count, 2);
     assert.ok(result.tasks.every(t => t.tags.includes('urgent')));
   });
 
   test('filters by priority', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj1', name: 'Work' }];
       }
@@ -491,14 +445,14 @@ describe('tasks.search', () => {
       return {};
     });
 
-    const result = await tasks.search('', { priority: 'high' });
+    const result = await tasks.search('', { priority: 'high' }, makeDeps(mockApiRequest));
 
     assert.equal(result.count, 2);
     assert.ok(result.tasks.every(t => t.priority === 'high'));
   });
 
   test('handles inaccessible projects gracefully', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [
           { id: 'proj1', name: 'Work' },
@@ -515,26 +469,20 @@ describe('tasks.search', () => {
     });
 
     // Should not throw, should skip the inaccessible project
-    const result = await tasks.search('');
+    const result = await tasks.search('', undefined, makeDeps(mockApiRequest));
 
     assert.equal(result.count, 1);
   });
 });
 
 describe('tasks.due', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('returns tasks due within specified days', async () => {
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const nextMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj1', name: 'Work' }];
       }
@@ -552,7 +500,7 @@ describe('tasks.due', () => {
       return {};
     });
 
-    const result = await tasks.due(7);
+    const result = await tasks.due(7, makeDeps(mockApiRequest));
 
     assert.equal(result.days, 7);
     // Should include tomorrow and next week, but not next month, no due date, or completed
@@ -564,7 +512,7 @@ describe('tasks.due', () => {
     const day3 = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     const day2 = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
 
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj1', name: 'Work' }];
       }
@@ -580,7 +528,7 @@ describe('tasks.due', () => {
       return {};
     });
 
-    const result = await tasks.due(7);
+    const result = await tasks.due(7, makeDeps(mockApiRequest));
 
     assert.equal(result.tasks[0].title, 'Day 1');
     assert.equal(result.tasks[1].title, 'Day 2');
@@ -588,14 +536,14 @@ describe('tasks.due', () => {
   });
 
   test('defaults to 7 days', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [];
       }
       return {};
     });
 
-    const result = await tasks.due();
+    const result = await tasks.due(undefined, makeDeps(mockApiRequest));
 
     assert.equal(result.days, 7);
   });
@@ -604,7 +552,7 @@ describe('tasks.due', () => {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj1', name: 'Work' }];
       }
@@ -619,7 +567,7 @@ describe('tasks.due', () => {
       return {};
     });
 
-    const result = await tasks.due(7);
+    const result = await tasks.due(7, makeDeps(mockApiRequest));
 
     // Overdue tasks should be included - they're the most urgent
     assert.equal(result.count, 2);
@@ -630,14 +578,8 @@ describe('tasks.due', () => {
 });
 
 describe('tasks.priority', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('returns only high priority active tasks', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj1', name: 'Work' }];
       }
@@ -654,7 +596,7 @@ describe('tasks.priority', () => {
       return {};
     });
 
-    const result = await tasks.priority();
+    const result = await tasks.priority(makeDeps(mockApiRequest));
 
     assert.equal(result.count, 2);
     assert.ok(result.tasks.every(t => t.priority === 'high'));
@@ -663,14 +605,8 @@ describe('tasks.priority', () => {
 });
 
 describe('ID resolution', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('resolves short project ID to full ID', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [
           { id: 'abcd1234567890', name: 'Work' },
@@ -683,14 +619,14 @@ describe('ID resolution', () => {
       return {};
     });
 
-    await tasks.list('abcd1234');
+    await tasks.list('abcd1234', makeDeps(mockApiRequest));
 
     const dataCall = mockApiRequest.mock.calls.find(c => c.arguments[1].includes('/data'));
     assert.ok(dataCall.arguments[1].includes('abcd1234567890'));
   });
 
   test('resolves short task ID within project', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -708,7 +644,7 @@ describe('ID resolution', () => {
       return {};
     });
 
-    const result = await tasks.get('proj1234', 'task_abc');
+    const result = await tasks.get('proj1234', 'task_abc', makeDeps(mockApiRequest));
 
     assert.equal(result.fullId, 'task_abc_123456789');
   });
@@ -716,14 +652,14 @@ describe('ID resolution', () => {
   test('passes full ID without resolution', async () => {
     const fullId = 'a'.repeat(24); // Full ID is > 8 chars
 
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path.includes(`/project/${fullId}/data`)) {
         return { tasks: [] };
       }
       return {};
     });
 
-    await tasks.list(fullId);
+    await tasks.list(fullId, makeDeps(mockApiRequest));
 
     // Should not call /project to resolve
     const projectListCall = mockApiRequest.mock.calls.find(c => c.arguments[1] === '/project');
@@ -732,14 +668,8 @@ describe('ID resolution', () => {
 });
 
 describe('Input validation', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('create with empty title throws error', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -747,17 +677,17 @@ describe('Input validation', () => {
     });
 
     await assert.rejects(
-      () => tasks.create('proj1234', ''),
+      () => tasks.create('proj1234', '', undefined, makeDeps(mockApiRequest)),
       { message: 'Title is required' }
     );
 
     await assert.rejects(
-      () => tasks.create('proj1234', '   '),
+      () => tasks.create('proj1234', '   ', undefined, makeDeps(mockApiRequest)),
       { message: 'Title is required' }
     );
 
     await assert.rejects(
-      () => tasks.create('proj1234', null),
+      () => tasks.create('proj1234', null, undefined, makeDeps(mockApiRequest)),
       { message: 'Title is required' }
     );
   });
@@ -767,7 +697,7 @@ describe('Input validation', () => {
     // Use a malicious ID that's > 8 chars so it's treated as a full ID
     const maliciousId = '../../../etc/passwd';
 
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         // Return projects for short ID resolution
         return [{ id: 'proj123456789', name: 'Work' }];
@@ -779,7 +709,7 @@ describe('Input validation', () => {
       return { tasks: [] };
     });
 
-    await tasks.list(maliciousId);
+    await tasks.list(maliciousId, makeDeps(mockApiRequest));
 
     // Find the /data call and verify encodeURIComponent was applied
     const dataCall = mockApiRequest.mock.calls.find(c => c.arguments[1].includes('/data'));
@@ -789,7 +719,7 @@ describe('Input validation', () => {
   });
 
   test('handles null/undefined tags gracefully in search results', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj1', name: 'Work' }];
       }
@@ -805,7 +735,7 @@ describe('Input validation', () => {
       return {};
     });
 
-    const result = await tasks.search('');
+    const result = await tasks.search('', undefined, makeDeps(mockApiRequest));
 
     // All tasks should be returned with tags normalized to empty array or actual array
     assert.equal(result.count, 3);
@@ -814,14 +744,8 @@ describe('Input validation', () => {
 });
 
 describe('Edge cases', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('handles task with all optional fields missing', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -837,7 +761,7 @@ describe('Edge cases', () => {
       return {};
     });
 
-    const result = await tasks.list('proj1234');
+    const result = await tasks.list('proj1234', makeDeps(mockApiRequest));
 
     assert.equal(result.length, 1);
     assert.equal(result[0].title, 'Minimal task');
@@ -849,7 +773,7 @@ describe('Edge cases', () => {
 
   test('handles unknown status values', async () => {
     // TickTick might have status values other than 0 and 2
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -866,7 +790,7 @@ describe('Edge cases', () => {
       return {};
     });
 
-    const result = await tasks.list('proj1234');
+    const result = await tasks.list('proj1234', makeDeps(mockApiRequest));
 
     // Current behavior: anything != 2 is 'active'
     // This documents that behavior
@@ -877,7 +801,7 @@ describe('Edge cases', () => {
   });
 
   test('handles unknown priority values', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -894,7 +818,7 @@ describe('Edge cases', () => {
       return {};
     });
 
-    const result = await tasks.list('proj1234');
+    const result = await tasks.list('proj1234', makeDeps(mockApiRequest));
 
     // Current behavior: unknown priorities become 'none'
     // This might hide data issues - consider logging warnings

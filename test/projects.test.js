@@ -5,38 +5,14 @@
  * Run: node --test test/projects.test.js
  */
 
-import { test, describe, mock, beforeEach } from 'node:test';
+import { test, describe, mock } from 'node:test';
 import assert from 'node:assert/strict';
-
-// Mock setup
-let mockApiRequest;
-let mockLoadConfig;
-let mockLoadTokens;
-
-const originalCore = await import('../lib/core.js');
-
-const mockCore = {
-  ...originalCore,
-  apiRequest: (...args) => mockApiRequest(...args),
-  loadConfig: () => mockLoadConfig(),
-  loadTokens: () => mockLoadTokens(),
-};
-
-mock.module('../lib/core.js', {
-  namedExports: mockCore,
-});
 
 const projects = await import('../lib/projects.js');
 
 describe('projects.list', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('returns formatted project list', async () => {
-    mockApiRequest = mock.fn(async () => [
+    const mockApiRequest = mock.fn(async () => [
       {
         id: 'proj123456789abc',
         name: 'Work',
@@ -55,7 +31,12 @@ describe('projects.list', () => {
       },
     ]);
 
-    const result = await projects.list();
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+    };
+
+    const result = await projects.list(mockDeps);
 
     assert.equal(result.length, 2);
 
@@ -73,18 +54,26 @@ describe('projects.list', () => {
   });
 
   test('returns empty array when no projects', async () => {
-    mockApiRequest = mock.fn(async () => []);
+    const mockApiRequest = mock.fn(async () => []);
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+    };
 
-    const result = await projects.list();
+    const result = await projects.list(mockDeps);
 
     assert.equal(result.length, 0);
     assert.deepEqual(result, []);
   });
 
   test('calls correct API endpoint', async () => {
-    mockApiRequest = mock.fn(async () => []);
+    const mockApiRequest = mock.fn(async () => []);
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+    };
 
-    await projects.list();
+    await projects.list(mockDeps);
 
     assert.equal(mockApiRequest.mock.calls.length, 1);
     assert.equal(mockApiRequest.mock.calls[0].arguments[0], 'GET');
@@ -93,14 +82,8 @@ describe('projects.list', () => {
 });
 
 describe('projects.get', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('returns project with tasks', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789', name: 'Work' }];
       }
@@ -137,7 +120,14 @@ describe('projects.get', () => {
       return {};
     });
 
-    const result = await projects.get('proj1234');
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      formatPriority: (p) => (p === 5 ? 'high' : 'none'),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    const result = await projects.get('proj1234', mockDeps);
 
     assert.equal(result.project.id, 'proj1234');
     assert.equal(result.project.fullId, 'proj123456789');
@@ -157,7 +147,7 @@ describe('projects.get', () => {
   });
 
   test('resolves short project ID', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [
           { id: 'abcd1234567890123456', name: 'Work' },
@@ -173,7 +163,14 @@ describe('projects.get', () => {
       return {};
     });
 
-    const result = await projects.get('abcd1234');
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      formatPriority: (p) => (p === 5 ? 'high' : 'none'),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    const result = await projects.get('abcd1234', mockDeps);
 
     assert.equal(result.project.fullId, 'abcd1234567890123456');
   });
@@ -181,7 +178,7 @@ describe('projects.get', () => {
   test('passes full ID without resolution', async () => {
     const fullId = 'abcdef1234567890abcdef';
 
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === `/project/${fullId}/data`) {
         return {
           project: { id: fullId, name: 'Work' },
@@ -191,7 +188,14 @@ describe('projects.get', () => {
       return {};
     });
 
-    await projects.get(fullId);
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      formatPriority: (p) => (p === 5 ? 'high' : 'none'),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    await projects.get(fullId, mockDeps);
 
     // Should not call /project to resolve (full ID > 8 chars)
     const projectListCall = mockApiRequest.mock.calls.find(c => c.arguments[1] === '/project');
@@ -200,14 +204,8 @@ describe('projects.get', () => {
 });
 
 describe('projects.create', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('creates project with name only', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST' && path === '/project') {
         return {
           id: 'newproj123456',
@@ -219,7 +217,12 @@ describe('projects.create', () => {
       return {};
     });
 
-    const result = await projects.create('New Project');
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+    };
+
+    const result = await projects.create('New Project', undefined, mockDeps);
 
     assert.equal(result.success, true);
     assert.equal(result.project.name, 'New Project');
@@ -233,7 +236,7 @@ describe('projects.create', () => {
   });
 
   test('creates project with all options', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST') {
         return {
           id: 'newproj123456',
@@ -245,10 +248,15 @@ describe('projects.create', () => {
       return {};
     });
 
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+    };
+
     const result = await projects.create('New Project', {
       color: '#FF5500',
       viewMode: 'kanban',
-    });
+    }, mockDeps);
 
     assert.equal(result.success, true);
     assert.equal(result.project.color, '#FF5500');
@@ -263,11 +271,16 @@ describe('projects.create', () => {
   });
 
   test('ignores undefined options', async () => {
-    mockApiRequest = mock.fn(async (method, path, body) => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
       return { id: 'proj123', name: body.name };
     });
 
-    await projects.create('Test', { color: undefined, viewMode: undefined });
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+    };
+
+    await projects.create('Test', { color: undefined, viewMode: undefined }, mockDeps);
 
     const postCall = mockApiRequest.mock.calls[0];
     // Should only have 'name', not color or viewMode
@@ -276,14 +289,8 @@ describe('projects.create', () => {
 });
 
 describe('projects.remove', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('deletes project by ID', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'proj123456789' }];
       }
@@ -293,7 +300,13 @@ describe('projects.remove', () => {
       return {};
     });
 
-    const result = await projects.remove('proj1234');
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    const result = await projects.remove('proj1234', mockDeps);
 
     assert.equal(result.success, true);
     assert.ok(result.message.includes('deleted'));
@@ -305,7 +318,7 @@ describe('projects.remove', () => {
   });
 
   test('resolves short ID before deletion', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [
           { id: 'abc123456789012345', name: 'Target' },
@@ -318,7 +331,13 @@ describe('projects.remove', () => {
       return {};
     });
 
-    await projects.remove('abc12345');
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    await projects.remove('abc12345', mockDeps);
 
     const deleteCall = mockApiRequest.mock.calls.find(c => c.arguments[0] === 'DELETE');
     assert.ok(deleteCall.arguments[1].includes('abc123456789012345'));
@@ -327,14 +346,20 @@ describe('projects.remove', () => {
   test('uses full ID directly', async () => {
     const fullId = 'abcdef123456789012345';
 
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (method === 'DELETE') {
         return undefined;
       }
       return {};
     });
 
-    await projects.remove(fullId);
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    await projects.remove(fullId, mockDeps);
 
     // Should not call /project to resolve
     const projectListCall = mockApiRequest.mock.calls.find(c => c.arguments[1] === '/project');
@@ -346,14 +371,8 @@ describe('projects.remove', () => {
 });
 
 describe('project ID resolution edge cases', () => {
-  beforeEach(() => {
-    mockApiRequest = mock.fn();
-    mockLoadConfig = mock.fn(() => ({ region: 'global', clientId: 'test', clientSecret: 'test' }));
-    mockLoadTokens = mock.fn(() => ({ accessToken: 'test-token', expiresAt: Date.now() + 3600000 }));
-  });
-
   test('returns unmatched short ID as-is', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [{ id: 'other1234567890', name: 'Other' }];
       }
@@ -365,7 +384,14 @@ describe('project ID resolution edge cases', () => {
     });
 
     // This short ID doesn't match any project
-    await projects.get('nomatch');
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      formatPriority: (p) => (p === 5 ? 'high' : 'none'),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    await projects.get('nomatch', mockDeps);
 
     const dataCall = mockApiRequest.mock.calls.find(c => c.arguments[1].includes('/data'));
     // Should pass the unmatched ID to the API
@@ -373,7 +399,7 @@ describe('project ID resolution edge cases', () => {
   });
 
   test('handles empty project list', async () => {
-    mockApiRequest = mock.fn(async (method, path) => {
+    const mockApiRequest = mock.fn(async (method, path) => {
       if (path === '/project') {
         return [];
       }
@@ -383,7 +409,14 @@ describe('project ID resolution edge cases', () => {
       return {};
     });
 
-    await projects.get('test1234');
+    const mockDeps = {
+      apiRequest: mockApiRequest,
+      shortId: (id) => id.substring(0, 8),
+      formatPriority: (p) => (p === 5 ? 'high' : 'none'),
+      isShortId: (id) => id.length <= 8,
+    };
+
+    await projects.get('test1234', mockDeps);
 
     // Should proceed with the original ID
     const dataCall = mockApiRequest.mock.calls.find(c => c.arguments[1].includes('/data'));
