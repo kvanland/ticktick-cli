@@ -15,7 +15,7 @@
     "./projects": "./lib/projects.js"
   },
   "scripts": {
-    "test": "node --experimental-test-module-mocks --test test/*.test.js"
+    "test": "node --test test/*.test.js"
   },
   "keywords": [
     "ticktick",
