@@ -231,13 +231,14 @@ async function handleTasks() {
       });
     }
     case 'due':
-      return await tasks.due(parseInt(args.positional[0]) || 7);
+      return await tasks.due(parseInt(args.positional[0]) || 7, { folder: args.options.folder });
     case 'priority':
       return await tasks.priority();
     case 'completed': {
       const projectIds = args.options.projects ? args.options.projects.split(',').map((p) => p.trim()) : undefined;
       return await tasks.listCompleted({
         projectIds,
+        folder: args.options.folder,
         startDate: args.options.from,
         endDate: args.options.to,
       });
