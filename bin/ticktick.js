@@ -234,6 +234,14 @@ async function handleTasks() {
       return await tasks.due(parseInt(args.positional[0]) || 7);
     case 'priority':
       return await tasks.priority();
+    case 'completed': {
+      const projectIds = args.options.projects ? args.options.projects.split(',').map((p) => p.trim()) : undefined;
+      return await tasks.listCompleted({
+        projectIds,
+        startDate: args.options.from,
+        endDate: args.options.to,
+      });
+    }
     default:
       console.error(`Unknown tasks subcommand: ${args.subcommand}`);
       console.log(getTasksHelp());
