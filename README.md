@@ -77,7 +77,8 @@ Create `~/.config/ticktick/config.json`:
   "clientId": "YOUR_CLIENT_ID",
   "clientSecret": "YOUR_CLIENT_SECRET",
   "redirectUri": "http://localhost:18888/callback",
-  "region": "global"
+  "region": "global",
+  "timezone": "Asia/Hong_Kong"
 }
 ```
 
@@ -86,6 +87,8 @@ Or set environment variables:
 ```bash
 export TICKTICK_CLIENT_ID="your_client_id"
 export TICKTICK_CLIENT_SECRET="your_client_secret"
+export TICKTICK_REGION="global"
+export TICKTICK_TIMEZONE="Asia/Hong_Kong"
 ```
 
 #### 3. Authenticate
