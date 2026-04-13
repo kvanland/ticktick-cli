@@ -32,6 +32,7 @@ The setup wizard will guide you through:
 - **Tags support** - Organize tasks with tags
 - **Interactive mode** - Create tasks with guided prompts
 - **Human-readable output** - Table format by default, JSON optional
+- **Semantic search** - Vector similarity search via Qdrant + Ollama (optional)
 - OAuth 2.0 with automatic token refresh
 - Supports global and China regions
 - MCP server for Claude Desktop and Claude Code integration
@@ -144,10 +145,15 @@ ticktick tasks update 685cfca6 --title "New title" --priority medium
 ticktick tasks complete PROJECT_ID 685cfca6
 ticktick tasks delete PROJECT_ID 685cfca6
 
-# Search (by text, tags, or priority)
+# Keyword search (by text, tags, or priority)
 ticktick tasks search "meeting"
 ticktick tasks search --tags "work"
 ticktick tasks search --priority high
+
+# Semantic search (requires Qdrant + Ollama, see below)
+ticktick tasks semantic "anything related to deployments"
+ticktick tasks semantic "client follow-ups" --limit 10
+ticktick tasks similar 685cfca6    # Find similar tasks
 
 # Filter by due date
 ticktick tasks due 3           # Tasks due in 3 days
@@ -195,6 +201,84 @@ ticktick projects list
 # JSON format - for scripting
 ticktick projects list --format json
 ```
+
+## Vector Search (Optional)
+
+The built-in keyword search iterates every project and every task via the API on each query. For a handful of tasks this is fine, but once you have hundreds of tasks across many projects, each search fires N+1 API calls (1 to list projects, then 1 per project to fetch tasks) and does substring matching, which misses semantically related results.
+
+Vector search solves both problems:
+
+- **Speed**: queries hit a local Qdrant index instead of the TickTick API. A search that took 3-5 seconds over the API returns in under 100ms.
+- **Relevance**: "deployment tasks" finds tasks titled "push release to prod" or "update CI pipeline" that keyword search would never match.
+
+This has been running in production for several months with ~500 tasks and the difference is significant.
+
+### Prerequisites
+
+You need two services running locally (Docker is the easiest path):
+
+```bash
+# Qdrant (vector database)
+docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
+
+# Ollama (local embeddings)
+docker run -d --name ollama -p 11434:11434 ollama/ollama
+docker exec ollama ollama pull nomic-embed-text
+```
+
+Or install natively:
+- [Qdrant](https://qdrant.tech/documentation/guides/installation/)
+- [Ollama](https://ollama.com/download) + `ollama pull nomic-embed-text`
+
+### Configuration
+
+Set these environment variables to override defaults:
+
+```bash
+export QDRANT_URL="http://localhost:6333"     # default
+export OLLAMA_URL="http://localhost:11434"     # default
+export EMBEDDING_MODEL="nomic-embed-text"     # default
+```
+
+### Usage
+
+```bash
+# 1. Build the index (run once, then periodically)
+ticktick tasks vector-sync
+
+# 2. Search semantically
+ticktick tasks semantic "client follow-ups"
+ticktick tasks semantic "anything about kubernetes" --limit 10
+
+# 3. Find similar tasks (deduplication, related work)
+ticktick tasks similar TASK_ID
+
+# 4. Check index health
+ticktick tasks vector-status
+```
+
+### How sync works
+
+`vector-sync` is incremental by default:
+
+1. Fetches all active tasks from the TickTick API
+2. Computes an MD5 hash of `title|content|tags` for each task
+3. Only re-embeds tasks whose content hash changed since last sync
+4. Updates metadata (priority, dueDate) without re-embedding when only those fields changed
+5. Removes tasks from the index that no longer exist
+
+This means a typical sync with a few changed tasks finishes in seconds, not minutes. Use `--full` to force a complete re-index.
+
+For automated sync, add a cron job:
+
+```bash
+# Sync every 4 hours
+0 */4 * * * ticktick tasks vector-sync --format json >> /var/log/ticktick-vector-sync.log 2>&1
+```
+
+### Graceful fallback
+
+If Qdrant or Ollama are not running, semantic search automatically falls back to keyword search and reports the reason. Nothing breaks; you just get the slower path.
 
 ## MCP Server
 
@@ -256,8 +340,12 @@ Once configured, the AI assistant can use these tools:
 | `ticktick_tasks_complete` | Mark task as complete |
 | `ticktick_tasks_delete` | Delete a task |
 | `ticktick_tasks_search` | Search by keyword, tags, or priority |
+| `ticktick_tasks_semantic_search` | Semantic search via vector similarity |
+| `ticktick_tasks_similar` | Find semantically similar tasks |
 | `ticktick_tasks_due` | Get tasks due within N days |
 | `ticktick_tasks_priority` | Get high priority tasks |
+| `ticktick_vector_sync` | Sync tasks into vector index |
+| `ticktick_vector_status` | Check vector index health |
 
 **Example prompts for Claude:**
 - "What tasks do I have due this week?"

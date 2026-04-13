@@ -12,7 +12,8 @@
     "./core": "./lib/core.js",
     "./auth": "./lib/auth.js",
     "./tasks": "./lib/tasks.js",
-    "./projects": "./lib/projects.js"
+    "./projects": "./lib/projects.js",
+    "./vector": "./lib/vector.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

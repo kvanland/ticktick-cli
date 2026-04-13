@@ -243,6 +243,34 @@ async function handleTasks() {
         endDate: args.options.to,
       });
     }
+    case 'semantic': {
+      const query = args.positional[0];
+      if (!query) {
+        console.error('Usage: ticktick tasks semantic QUERY [--limit N] [--priority LEVEL]');
+        process.exit(1);
+      }
+      return await tasks.semanticSearch(query, {
+        limit: parseInt(args.options.limit) || 5,
+        priority: args.options.priority,
+      });
+    }
+    case 'similar': {
+      const taskId = args.positional[0];
+      if (!taskId) {
+        console.error('Usage: ticktick tasks similar TASK_ID [--limit N]');
+        process.exit(1);
+      }
+      return await tasks.findSimilar(taskId, {
+        limit: parseInt(args.options.limit) || 5,
+      });
+    }
+    case 'vector-sync':
+      return await tasks.vectorSync({
+        forceFull: !!args.options.full,
+        maxEmbeddings: parseInt(args.options.max) || 200,
+      });
+    case 'vector-status':
+      return await tasks.vectorStatus();
     default:
       console.error(`Unknown tasks subcommand: ${args.subcommand}`);
       console.log(getTasksHelp());
