@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { formatOutput } from '../lib/cli.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = join(__dirname, '..', 'bin', 'ticktick.js');
@@ -202,6 +203,57 @@ describe('parseArgs behavior', () => {
     const { stderr } = await runCli(['tasks', 'priority']);
     // Should fail on auth, not on missing argument
     assert.ok(!stderr.includes('Usage:'));
+  });
+});
+
+describe('Text output date formatting', () => {
+  test('converts ISO due dates into the configured timezone for task tables', () => {
+    process.env.TICKTICK_TIMEZONE = 'Asia/Hong_Kong';
+
+    const output = formatOutput([
+      {
+        id: 'task1234',
+        title: 'Birthday reminder',
+        dueDate: '2026-06-24T16:00:00.000+0000',
+        priority: 'none',
+        tags: [],
+      },
+    ], 'text');
+
+    assert.ok(output.includes('2026-06-25'));
+    delete process.env.TICKTICK_TIMEZONE;
+  });
+
+
+  test('returns the raw due date when timezone is invalid', () => {
+    process.env.TICKTICK_TIMEZONE = 'Mars/Olympus_Mons';
+
+    const output = formatOutput([
+      {
+        id: 'task9999',
+        title: 'Timezone fallback',
+        dueDate: '2026-06-24T16:00:00.000+0000',
+        priority: 'none',
+        tags: [],
+      },
+    ], 'text');
+
+    assert.ok(output.includes('2026-06-24T16:00:00.000+0000'));
+    delete process.env.TICKTICK_TIMEZONE;
+  });
+
+  test('preserves date-only due dates in text output', () => {
+    const output = formatOutput([
+      {
+        id: 'task1234',
+        title: 'All-day event',
+        dueDate: '2026-06-24',
+        priority: 'none',
+        tags: [],
+      },
+    ], 'text');
+
+    assert.ok(output.includes('2026-06-24'));
   });
 });
 

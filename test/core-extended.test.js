@@ -85,6 +85,7 @@ describe('Config and Token File Operations', () => {
       TICKTICK_CLIENT_SECRET: process.env.TICKTICK_CLIENT_SECRET,
       TICKTICK_REDIRECT_URI: process.env.TICKTICK_REDIRECT_URI,
       TICKTICK_REGION: process.env.TICKTICK_REGION,
+      TICKTICK_TIMEZONE: process.env.TICKTICK_TIMEZONE,
     };
 
     // Clear env vars that might interfere
@@ -92,6 +93,7 @@ describe('Config and Token File Operations', () => {
     delete process.env.TICKTICK_CLIENT_SECRET;
     delete process.env.TICKTICK_REDIRECT_URI;
     delete process.env.TICKTICK_REGION;
+    delete process.env.TICKTICK_TIMEZONE;
 
     // Set XDG_CONFIG_HOME to our temp directory
     process.env.XDG_CONFIG_HOME = tempDir;
@@ -119,6 +121,7 @@ describe('Config and Token File Operations', () => {
       process.env.TICKTICK_CLIENT_SECRET = 'env-client-secret';
       process.env.TICKTICK_REDIRECT_URI = 'http://custom:9999/cb';
       process.env.TICKTICK_REGION = 'china';
+      process.env.TICKTICK_TIMEZONE = 'Asia/Hong_Kong';
 
       // Need fresh import to pick up new CONFIG_DIR
       const configDir = join(tempDir, 'ticktick');
@@ -133,6 +136,7 @@ describe('Config and Token File Operations', () => {
         clientSecret: 'env-client-secret',
         redirectUri: 'http://custom:9999/cb',
         region: 'china',
+        timezone: 'Asia/Hong_Kong',
       });
     });
 
@@ -145,6 +149,7 @@ describe('Config and Token File Operations', () => {
 
       assert.equal(config.redirectUri, 'http://localhost:18888/callback');
       assert.equal(config.region, 'global');
+      assert.equal(config.timezone, undefined);
     });
 
     test('loads config from file when env vars not set', async () => {
@@ -156,6 +161,7 @@ describe('Config and Token File Operations', () => {
         clientSecret: 'file-client-secret',
         redirectUri: 'http://file:8080/callback',
         region: 'global',
+        timezone: 'Asia/Hong_Kong',
       };
 
       await writeFile(
@@ -382,6 +388,7 @@ describe('OAuth and API Functions (with fetch mocks)', () => {
       TICKTICK_CLIENT_SECRET: process.env.TICKTICK_CLIENT_SECRET,
       TICKTICK_REDIRECT_URI: process.env.TICKTICK_REDIRECT_URI,
       TICKTICK_REGION: process.env.TICKTICK_REGION,
+      TICKTICK_TIMEZONE: process.env.TICKTICK_TIMEZONE,
     };
 
     // Set up test environment
@@ -772,6 +779,7 @@ describe('OAuth and API Functions (with fetch mocks)', () => {
     test('uses China API URL when region is china', async () => {
       // Set region to china
       process.env.TICKTICK_REGION = 'china';
+      process.env.TICKTICK_TIMEZONE = 'Asia/Hong_Kong';
 
       const configDir = join(tempDir, 'ticktick');
       await mkdir(configDir, { recursive: true });

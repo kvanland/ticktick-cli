@@ -17,6 +17,7 @@ import * as tasks from '../lib/tasks.js';
 import * as projects from '../lib/projects.js';
 import { promptTaskCreate } from '../lib/interactive.js';
 import { runSetup } from '../lib/setup.js';
+import { loadConfig } from '../lib/core.js';
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -57,12 +58,23 @@ async function main() {
 
     // Output result if any
     if (result !== undefined) {
+      await applyConfiguredTimezone(args.options.format);
       console.log(formatOutput(result, args.options.format));
     }
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
   }
+}
+
+
+async function applyConfiguredTimezone(format) {
+  if (format === 'json' || process.env.TICKTICK_TIMEZONE) return;
+
+  try {
+    const config = await loadConfig();
+    if (config.timezone) process.env.TICKTICK_TIMEZONE = config.timezone;
+  } catch {}
 }
 
 async function handleAuth() {

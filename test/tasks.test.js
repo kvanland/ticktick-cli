@@ -31,6 +31,7 @@ const makeDeps = (apiRequest) => ({
     if (reminder === '1h') return 'TRIGGER:-PT1H';
     return null;
   },
+  getTimeZone: () => 'Asia/Shanghai',
 });
 
 describe('tasks.list', () => {
@@ -226,7 +227,10 @@ describe('tasks.create', () => {
     const body = postCall.arguments[2];
     assert.equal(body.title, 'Important Task');
     assert.equal(body.content, 'Task description');
-    assert.equal(body.dueDate, '2026-02-01');
+    assert.equal(body.dueDate, '2026-01-31T16:00:00+0000');
+    assert.equal(body.startDate, '2026-01-31T16:00:00+0000');
+    assert.equal(body.isAllDay, true);
+    assert.equal(body.timeZone, 'Asia/Shanghai');
     assert.equal(body.priority, 5); // high = 5
     assert.deepEqual(body.tags, ['urgent', 'work']);
     assert.deepEqual(body.reminders, ['TRIGGER:-PT1H']);
@@ -286,6 +290,137 @@ describe('tasks.update', () => {
     assert.equal(postCall.arguments[2].priority, 3); // medium = 3
   });
 
+  test('includes resolved projectId in update request body', async () => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
+      if (method === 'POST' && path.includes('/task/')) {
+        return { id: body.id, projectId: body.projectId, title: 'Task', priority: 0, tags: [] };
+      }
+      if (path === '/project') {
+        return [{ id: 'proj123456789', name: 'Work' }];
+      }
+      if (path.includes('/data')) {
+        return { tasks: [{ id: 'task123456789', projectId: 'proj123456789', title: 'Task' }] };
+      }
+      return {};
+    });
+
+    await tasks.update('task1234', { dueDate: '2026-03-01' }, makeDeps(mockApiRequest));
+
+    const postCall = mockApiRequest.mock.calls.find(c =>
+      c.arguments[0] === 'POST' && c.arguments[1].includes('/task/')
+    );
+    const body = postCall.arguments[2];
+    assert.equal(body.id, 'task123456789');
+    assert.equal(body.projectId, 'proj123456789');
+    assert.equal(body.dueDate, '2026-02-28T16:00:00+0000');
+    assert.equal(body.startDate, '2026-02-28T16:00:00+0000');
+    assert.equal(body.isAllDay, true);
+    assert.equal(body.timeZone, 'Asia/Shanghai');
+  });
+
+  test('hydrates short task ids to full ids before update', async () => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
+      if (method === 'POST' && path.includes('/task/')) {
+        return { id: body.id, projectId: body.projectId, title: 'Task', dueDate: body.dueDate, priority: 0, tags: [] };
+      }
+      if (path === '/project') {
+        return [{ id: 'proj123456789', name: 'Work' }];
+      }
+      if (path.includes('/project/proj123456789/data')) {
+        return { tasks: [{ id: 'task1234', projectId: 'proj1234', title: 'Task' }] };
+      }
+      if (path.includes('/project/proj123456789/task/task1234')) {
+        return { id: 'task123456789', projectId: 'proj123456789', title: 'Task' };
+      }
+      return {};
+    });
+
+    await tasks.update('task1234', { dueDate: '2026-03-01' }, makeDeps(mockApiRequest));
+
+    const postCall = mockApiRequest.mock.calls.find(c =>
+      c.arguments[0] === 'POST' && c.arguments[1].includes('/task/')
+    );
+    assert.equal(postCall.arguments[1], '/task/task123456789');
+    assert.equal(postCall.arguments[2].id, 'task123456789');
+    assert.equal(postCall.arguments[2].projectId, 'proj123456789');
+  });
+
+
+  test('searches inbox virtual project when project list omits inbox', async () => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
+      if (method === 'POST' && path.includes('/task/')) {
+        return { id: body.id, projectId: body.projectId, title: 'Inbox Task', dueDate: body.dueDate, priority: 0, tags: [] };
+      }
+      if (path === '/project') {
+        return [{ id: 'proj123456789', name: 'Work' }];
+      }
+      if (path.includes('/project/proj123456789/data')) {
+        return { tasks: [] };
+      }
+      if (path.includes('/project/inbox/data')) {
+        return { tasks: [{ id: 'task123456789', projectId: 'inbox1012607260', title: 'Inbox Task' }] };
+      }
+      return {};
+    });
+
+    await tasks.update('task1234', { dueDate: '2026-03-01' }, makeDeps(mockApiRequest));
+
+    const inboxLookup = mockApiRequest.mock.calls.find(c => c.arguments[1] === '/project/inbox/data');
+    assert.ok(inboxLookup);
+    const postCall = mockApiRequest.mock.calls.find(c =>
+      c.arguments[0] === 'POST' && c.arguments[1].includes('/task/')
+    );
+    assert.equal(postCall.arguments[1], '/task/task123456789');
+    assert.equal(postCall.arguments[2].projectId, 'inbox1012607260');
+  });
+
+  test('datetime due input stays timed', async () => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
+      if (method === 'POST' && path.includes('/task/')) {
+        return { id: body.id, projectId: body.projectId, title: 'Task', dueDate: body.dueDate, priority: 0, tags: [] };
+      }
+      if (path === '/project') {
+        return [{ id: 'proj123456789', name: 'Work' }];
+      }
+      if (path.includes('/data')) {
+        return { tasks: [{ id: 'task123456789', projectId: 'proj123456789', title: 'Task' }] };
+      }
+      return {};
+    });
+
+    await tasks.update('task1234', { dueDate: '2026-03-01T09:30:00+0800' }, makeDeps(mockApiRequest));
+
+    const postCall = mockApiRequest.mock.calls.find(c =>
+      c.arguments[0] === 'POST' && c.arguments[1].includes('/task/')
+    );
+    const body = postCall.arguments[2];
+    assert.equal(body.dueDate, '2026-03-01T09:30:00+0800');
+    assert.equal(body.isAllDay, false);
+    assert.equal(body.startDate, undefined);
+  });
+
+  test('handles empty update response without crashing', async () => {
+    const mockApiRequest = mock.fn(async (method, path, body) => {
+      if (method === 'POST' && path.includes('/task/')) {
+        return undefined;
+      }
+      if (path === '/project') {
+        return [{ id: 'proj123456789', name: 'Work' }];
+      }
+      if (path.includes('/data')) {
+        return { tasks: [{ id: 'task123456789', projectId: 'proj123456789', title: 'Task' }] };
+      }
+      return {};
+    });
+
+    const result = await tasks.update('task1234', { dueDate: '2026-03-01' }, makeDeps(mockApiRequest));
+
+    assert.equal(result.success, true);
+    assert.equal(result.task.fullId, 'task123456789');
+    assert.equal(result.task.projectId, 'proj1234');
+    assert.equal(result.task.dueDate, '2026-02-28T16:00:00+0000');
+  });
+
   test('only includes provided fields in update', async () => {
     const mockApiRequest = mock.fn(async (method, path, body) => {
       if (method === 'POST' && path.includes('/task/')) {
@@ -306,7 +441,10 @@ describe('tasks.update', () => {
       c.arguments[0] === 'POST' && c.arguments[1].includes('/task/')
     );
     const body = postCall.arguments[2];
-    assert.equal(body.dueDate, '2026-03-01');
+    assert.equal(body.dueDate, '2026-02-28T16:00:00+0000');
+    assert.equal(body.startDate, '2026-02-28T16:00:00+0000');
+    assert.equal(body.isAllDay, true);
+    assert.equal(body.timeZone, 'Asia/Shanghai');
     assert.equal(body.title, undefined);
     assert.equal(body.priority, undefined);
   });
